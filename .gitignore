@@ -1,0 +1,17 @@
+.github/
+.gemini/
+.github/
+__MACOSX/
+.env
+.env.example
+.dockerignore
+graphify-out/
+*.zip
+situation.md
+pubspec.yaml
+login_response.json
+hi.md
+nginx.conf
+test/
+fix.md
+
