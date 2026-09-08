@@ -110,11 +110,8 @@ export async function createJob(token: string, payload: {
   vehicle_class: string;
   pickup: Place;
   dropoff: Place;
-  requested_min_price: number;
-  requested_max_price: number;
   idempotency_key: string;
-  booking_mode: BookingMode;
-  provider_id?: number;
+  provider_id: number;
 }) {
   return request<Job>('/jobs', {
     method: 'POST',
@@ -152,8 +149,15 @@ export async function getAvailableRequests(token: string) {
   });
 }
 
-export async function acceptJob(token: string, jobId: number) {
-  return request<Job>(`/jobs/${jobId}/accept`, {
+export async function startJob(token: string, jobId: number) {
+  return request<Job>(`/provider/jobs/${jobId}/start`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+export async function completeJob(token: string, jobId: number) {
+  return request<Job>(`/provider/jobs/${jobId}/complete`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}` },
   });
@@ -186,7 +190,7 @@ export async function getProviderTrucks(token: string) {
   });
 }
 
-export async function createProviderTruck(token: string, payload: { plate_number: string; vehicle_class: string; capacity: string; is_active?: boolean }) {
+export async function createProviderTruck(token: string, payload: { plate_number: string; vehicle_class: string; is_active?: boolean }) {
   return request<Truck>('/provider/trucks', {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}` },

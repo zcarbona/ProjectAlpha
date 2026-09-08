@@ -106,12 +106,6 @@ function TripPageContent() {
                     <span className="text-slate-500">Dropoff</span>
                     <span className="font-medium text-slate-300">{job.dropoff_address || 'Not set'}</span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">Requested</span>
-                    <span className="font-medium text-slate-300">
-                      {job.requested_min_price?.toFixed(0)}–{job.requested_max_price?.toFixed(0)} EGP
-                    </span>
-                  </div>
                   {job.approved_price && (
                     <div className="flex justify-between">
                       <span className="text-slate-500">Approved</span>

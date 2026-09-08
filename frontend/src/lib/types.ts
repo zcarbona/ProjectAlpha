@@ -35,8 +35,6 @@ export interface Job {
   provider_name: string;
   status: string;
   payment_status: string;
-  requested_min_price: number;
-  requested_max_price: number;
   approved_price: number | null;
   lock_expires_at: string | null;
   pickup_address: string | null;

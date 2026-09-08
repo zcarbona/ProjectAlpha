@@ -4,14 +4,26 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.core.security import get_current_user, require_role, _client_ip
-from app.models.models import User, UserRole, Provider, Truck, ProviderFleet, AuditEvent, VehicleType
-
-router = APIRouter(tags=["provider"])
+from app.models.models import User, UserRole, Provider, Truck, ProviderFleet, AuditEvent, VehicleType, Job
+from app.api.v1.events import manager
+...
+@router.post("/provider/location")
+async def update_location(lat: float, lon: float, user: User = Depends(require_role(UserRole.PROVIDER)), db: AsyncSession = Depends(get_db)):
+    provider = (await db.execute(select(Provider).where(Provider.user_id == user.id))).scalars().first()
+    if not provider:
+        raise HTTPException(status_code=404, detail="Provider not found")
+    
+    # Find active job for this provider
+    job = (await db.execute(select(Job).where(Job.provider_id == provider.id, Job.status == "in_progress"))).scalars().first()
+    if job:
+        await manager.broadcast(job.customer_id, {"type": "location_update", "job_id": job.id, "lat": lat, "lon": lon})
+    
+    return {"status": "ok"}
 
 class TruckCreate(BaseModel):
     plate_number: str = Field(min_length=1, max_length=20)
     vehicle_class: str = Field(min_length=1, max_length=50)
-    capacity: str = Field(min_length=1, max_length=50)
+    
     is_active: bool = True
 
 class TruckUpdate(BaseModel):
@@ -57,10 +69,23 @@ async def create_truck(payload: TruckCreate, request: Request, user: User = Depe
     provider = (await db.execute(select(Provider).where(Provider.user_id == user.id))).scalars().first()
     if not provider:
         raise HTTPException(status_code=404, detail="Provider profile not found")
+    
+    # Lookup vehicle type to get capacity
+    vt = (await db.execute(select(VehicleType).where(VehicleType.code == payload.vehicle_class.lower()))).scalars().first()
+    if not vt:
+        raise HTTPException(status_code=400, detail="Invalid vehicle class")
+        
     existing = (await db.execute(select(Truck).where(Truck.plate_number == payload.plate_number))).scalars().first()
     if existing:
         raise HTTPException(status_code=400, detail="Truck with this plate number already exists")
-    truck = Truck(provider_id=provider.id, plate_number=payload.plate_number, vehicle_class=payload.vehicle_class, capacity=payload.capacity, is_active=payload.is_active)
+    
+    truck = Truck(
+        provider_id=provider.id, 
+        plate_number=payload.plate_number, 
+        vehicle_class=vt.code, 
+        capacity=str(vt.capacity_kg), 
+        is_active=payload.is_active
+    )
     db.add(truck)
     db.add(AuditEvent(actor=str(user.id), action="create_truck", record_type="Truck", record_id=None, ip_address=_client_ip(request), user_agent=request.headers.get("user-agent")))
     await db.commit()

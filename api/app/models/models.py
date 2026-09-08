@@ -36,6 +36,8 @@ class User(Base):
     locked_until = Column(DateTime, nullable=True)
     verification_token = Column(String(128), nullable=True)
     verification_token_expires = Column(DateTime, nullable=True)
+    refresh_token = Column(String(255), nullable=True, index=True)
+    refresh_token_expires = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -104,8 +106,6 @@ class Job(Base):
     dropoff_lat = Column(Float, nullable=True)
     dropoff_lng = Column(Float, nullable=True)
     
-    requested_min_price = Column(Float)
-    requested_max_price = Column(Float)
     approved_price = Column(Float, nullable=True)
     
     status = Column(Enum(JobStatus), default=JobStatus.PENDING)

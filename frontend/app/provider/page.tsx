@@ -16,6 +16,8 @@ import {
   getAvailableRequests,
   acceptJob,
   declineJob,
+  startJob,
+  completeJob,
 } from '@/lib/api';
 
 type Tab = 'fleet' | 'trucks' | 'jobs' | 'requests';
@@ -102,11 +104,10 @@ function ProviderDashboard() {
     if (!token) return;
     const form = e.currentTarget;
     const plateNumber = (form.elements.namedItem('plateNumber') as HTMLInputElement).value;
-    const vehicleClass = (form.elements.namedItem('vehicleClass') as HTMLInputElement).value;
-    const capacity = (form.elements.namedItem('capacity') as HTMLInputElement).value;
+    const vehicleClass = (form.elements.namedItem('vehicleClass') as HTMLSelectElement).value;
 
     try {
-      await createProviderTruck(token, { plate_number: plateNumber, vehicle_class: vehicleClass, capacity });
+      await createProviderTruck(token, { plate_number: plateNumber, vehicle_class: vehicleClass });
       form.reset();
       loadAll();
     } catch (err) {
@@ -134,12 +135,14 @@ function ProviderDashboard() {
     }
   };
 
-  const handleApprove = async (jobId: number, approvedAmount: number) => {
+  const handleApprove = async (jobId: number) => {
     if (!token) return;
+    const amount = prompt('Enter approved amount:');
+    if (!amount || isNaN(parseFloat(amount))) return;
     try {
       await approvePrice(token, jobId, {
         decision: 'approved',
-        approved_amount: approvedAmount,
+        approved_amount: parseFloat(amount),
         idempotency_key: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
         note: 'Approved via provider dashboard',
       });
@@ -161,6 +164,24 @@ function ProviderDashboard() {
       loadAll();
     } catch {
       alert('Failed to reject job');
+    }
+  };
+
+  const handleStartJob = async (jobId: number) => {
+    try {
+      await startJob(token!, jobId);
+      loadAll();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to start job');
+    }
+  };
+
+  const handleCompleteJob = async (jobId: number) => {
+    try {
+      await completeJob(token!, jobId);
+      loadAll();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to complete job');
     }
   };
 
@@ -269,7 +290,6 @@ function ProviderDashboard() {
                     <div className="space-y-1 text-sm mb-4 text-slate-700">
                       <p><strong>Pickup:</strong> {req.pickup_address}</p>
                       <p><strong>Dropoff:</strong> {req.dropoff_address}</p>
-                      <p><strong>Budget:</strong> {req.requested_min_price}–{req.requested_max_price} EGP</p>
                     </div>
                     <div className="flex gap-2">
                       <button onClick={() => handleAccept(req.id)} className="px-4 py-2 bg-emerald-500 text-white rounded-lg font-bold hover:bg-emerald-600 transition-colors">Accept</button>
@@ -286,25 +306,24 @@ function ProviderDashboard() {
         {tab === 'trucks' && (
           <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
             <h2 className="text-xl font-bold mb-4 text-slate-900">My Trucks</h2>
-            <form onSubmit={handleCreateTruck} className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            <form onSubmit={handleCreateTruck} className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
               <input
                 name="plateNumber"
                 placeholder="Plate number"
                 className="p-3 border rounded-lg bg-white border-slate-300 text-slate-900 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 focus:outline-none"
                 required
               />
-              <input
+              <select
                 name="vehicleClass"
-                placeholder="Vehicle class"
                 className="p-3 border rounded-lg bg-white border-slate-300 text-slate-900 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 focus:outline-none"
                 required
-              />
-              <input
-                name="capacity"
-                placeholder="Capacity"
-                className="p-3 border rounded-lg bg-white border-slate-300 text-slate-900 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 focus:outline-none"
-                required
-              />
+              >
+                <option value="">Select Size</option>
+                <option value="small">small</option>
+                <option value="medium">medium</option>
+                <option value="large">large</option>
+                <option value="xlarge">xlarge</option>
+              </select>
               <button type="submit" className="p-3 bg-amber-500 text-white rounded-lg font-bold hover:bg-amber-600 transition-colors">
                 Add Truck
               </button>
@@ -388,7 +407,7 @@ function ProviderDashboard() {
                     {job.status === 'awaiting_provider_price_approval' && (
                       <div className="flex gap-2">
                         <button
-                          onClick={() => handleApprove(job.id, job.requested_max_price)}
+                          onClick={() => handleApprove(job.id)}
                           className="flex-1 p-2 bg-emerald-600 text-white rounded-lg font-medium hover:bg-emerald-700 transition-colors"
                         >
                           Approve
@@ -400,6 +419,22 @@ function ProviderDashboard() {
                           Reject
                         </button>
                       </div>
+                    )}
+                    {job.status === 'accepted' && (
+                      <button
+                        onClick={() => handleStartJob(job.id)}
+                        className="w-full p-2 bg-emerald-600 text-white rounded-lg font-medium hover:bg-emerald-700 transition-colors"
+                      >
+                        Start Trip
+                      </button>
+                    )}
+                    {job.status === 'in_progress' && (
+                      <button
+                        onClick={() => handleCompleteJob(job.id)}
+                        className="w-full p-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
+                      >
+                        Complete Delivery
+                      </button>
                     )}
                   </div>
                 ))}

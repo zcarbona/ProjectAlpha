@@ -67,6 +67,17 @@ services:
     networks:
       - naql_network
 
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    networks:
+      - naql_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+
 volumes:
   naql_mysql_data:
 

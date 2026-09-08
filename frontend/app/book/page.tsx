@@ -6,28 +6,23 @@ import RoleGuard from '@/components/RoleGuard';
 import { VehicleType } from '@/lib/types';
 import { getVehicleTypes, createJob, getProviders, sendVerificationEmail, verifyEmail } from '@/lib/api';
 
-type BookingMode = 'request' | 'provider_selection';
-
 function BookPageContent() {
   const [step, setStep] = useState(1);
   const [vehicles, setVehicles] = useState<VehicleType[]>([]);
   const [selectedVehicle, setSelectedVehicle] = useState<VehicleType | null>(null);
-  const [bookingMode, setBookingMode] = useState<BookingMode>('request');
   const [pickup, setPickup] = useState('');
   const [dropoff, setDropoff] = useState('');
-  const [budgetMin, setBudgetMin] = useState('');
-  const [budgetMax, setBudgetMax] = useState('');
+  // Budget is removed from UI flow, we will use VehicleType defaults
   const [availableProviders, setAvailableProviders] = useState<Array<{id: number, display_name: string}>>([]);
   const [selectedProviderId, setSelectedProviderId] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [jobStatus, setJobStatus] = useState<'idle' | 'pending' | 'accepted'>('idle');
+  const [jobStatus, setJobStatus] = useState<'idle' | 'success'>('idle');
   const [needsVerification, setNeedsVerification] = useState(false);
   const [verificationSent, setVerificationSent] = useState(false);
   const [verificationToken, setVerificationToken] = useState('');
   const [verifying, setVerifying] = useState(false);
   const { token } = useAuth();
-  const router = useRouter();
 
   useEffect(() => {
     const userStr = localStorage.getItem('naql_user');
@@ -50,12 +45,12 @@ function BookPageContent() {
   }, []);
 
   useEffect(() => {
-    if (bookingMode === 'provider_selection' && selectedVehicle) {
+    if (selectedVehicle) {
       getProviders(selectedVehicle.code)
         .then(setAvailableProviders)
         .catch(() => setError('Failed to load providers'));
     }
-  }, [bookingMode, selectedVehicle]);
+  }, [selectedVehicle]);
 
   const handleSendVerification = async () => {
     if (!token) return;
@@ -90,15 +85,7 @@ function BookPageContent() {
   };
 
   const handleNext = async () => {
-    if (step === 4) {
-      if (bookingMode === 'provider_selection') {
-        setStep(5);
-      } else {
-        await handleSubmit();
-      }
-      return;
-    }
-    if (step === 5) {
+    if (step === 3) {
       await handleSubmit();
       return;
     }
@@ -106,24 +93,22 @@ function BookPageContent() {
   };
 
   const handleSubmit = async () => {
-    if (!token || !selectedVehicle) return;
+    if (!token || !selectedVehicle || !selectedProviderId) return;
 
     setLoading(true);
     setError('');
 
     try {
       const idempotencyKey = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+      
       await createJob(token, {
         vehicle_class: selectedVehicle.code,
         pickup: { address: pickup },
         dropoff: { address: dropoff },
-        requested_min_price: parseFloat(budgetMin),
-        requested_max_price: parseFloat(budgetMax),
         idempotency_key: idempotencyKey,
-        booking_mode: bookingMode,
-        provider_id: bookingMode === 'provider_selection' ? selectedProviderId || undefined : undefined,
+        provider_id: selectedProviderId!,
       });
-      setJobStatus('pending');
+      setJobStatus('success');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create job');
       setLoading(false);
@@ -134,20 +119,18 @@ function BookPageContent() {
     switch (step) {
       case 1: return selectedVehicle !== null;
       case 2: return pickup.trim() !== '' && dropoff.trim() !== '';
-      case 3: return budgetMin !== '' && budgetMax !== '' && parseFloat(budgetMin) <= parseFloat(budgetMax);
-      case 4: return bookingMode !== null;
-      case 5: return selectedProviderId !== null;
+      case 3: return selectedProviderId !== null;
       default: return true;
     }
   };
 
-  if (jobStatus === 'pending') {
+  if (jobStatus === 'success') {
     return (
       <div className="min-h-screen bg-slate-50 py-12 px-4 flex items-center justify-center">
-        <div className="max-w-md w-full bg-white p-8 rounded-2xl shadow-sm border border-slate-200 text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-amber-500 mx-auto mb-4"></div>
-          <h2 className="text-xl font-bold text-slate-900 mb-2">Finding a Provider...</h2>
-          <p className="text-slate-600">Your request has been sent to available providers. Searching...</p>
+        <div className="max-w-md w-full bg-white p-8 rounded-2xl shadow-sm border border-slate-200 text-center animate-bounce">
+          <div className="text-6xl mb-4">✅</div>
+          <h2 className="text-xl font-bold text-slate-900 mb-2">Booking Successful!</h2>
+          <p className="text-slate-600">Your request has been sent to the provider.</p>
         </div>
       </div>
     );
@@ -208,17 +191,17 @@ function BookPageContent() {
       <div className="max-w-2xl mx-auto bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
         <h2 className="text-xl font-bold mb-6 text-slate-900">Request a Truck</h2>
 
-        {/* Progress Tracker */}
+        {/* Progress Tracker - Updated to 3 steps */}
         <div className="mb-8">
           <div className="flex justify-between mb-2">
-            {['Vehicle', 'Locations', 'Budget', 'Mode', 'Provider'].map((label, idx) => (
+            {['Vehicle', 'Locations', 'Provider'].map((label, idx) => (
               <div key={label} className={`text-sm font-medium ${step === idx + 1 ? 'text-amber-600' : 'text-slate-500'}`}>
                 {label}
               </div>
             ))}
           </div>
           <div className="h-2 bg-slate-100 rounded-full">
-            <div className="h-2 bg-amber-500 rounded-full transition-all duration-300" style={{ width: `${(step / 5) * 100}%` }} />
+            <div className="h-2 bg-amber-500 rounded-full transition-all duration-300" style={{ width: `${(step / 3) * 100}%` }} />
           </div>
         </div>
 
@@ -252,35 +235,6 @@ function BookPageContent() {
           )}
 
           {step === 3 && (
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-1 text-slate-700">Min Budget (EGP)</label>
-                <input type="number" value={budgetMin} onChange={(e) => setBudgetMin(e.target.value)} className="w-full p-3 border rounded-lg bg-white border-slate-300 text-slate-900 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 focus:outline-none" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1 text-slate-700">Max Budget (EGP)</label>
-                <input type="number" value={budgetMax} onChange={(e) => setBudgetMax(e.target.value)} className="w-full p-3 border rounded-lg bg-white border-slate-300 text-slate-900 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 focus:outline-none" />
-              </div>
-            </div>
-          )}
-
-          {step === 4 && (
-            <div className="space-y-4">
-              <p className="font-semibold text-slate-900">How would you like to book?</p>
-              <div className="grid grid-cols-1 gap-4">
-                <button type="button" onClick={() => setBookingMode('request')} className={`p-4 rounded-xl border-2 text-left ${bookingMode === 'request' ? 'border-amber-500 bg-amber-50' : 'border-slate-200'}`}>
-                  <div className="font-bold text-slate-900">⚡ Quick Request</div>
-                  <div className="text-sm text-slate-600">Fastest way to find a provider.</div>
-                </button>
-                <button type="button" onClick={() => setBookingMode('provider_selection')} className={`p-4 rounded-xl border-2 text-left ${bookingMode === 'provider_selection' ? 'border-amber-500 bg-amber-50' : 'border-slate-200'}`}>
-                  <div className="font-bold text-slate-900">👤 Choose a Provider</div>
-                  <div className="text-sm text-slate-600">Compare ratings and prices.</div>
-                </button>
-              </div>
-            </div>
-          )}
-
-          {step === 5 && (
             <div className="space-y-3">
               <p className="font-semibold mb-3 text-slate-900">Choose a provider</p>
               {availableProviders.map((p) => (
@@ -295,7 +249,7 @@ function BookPageContent() {
         <div className="flex gap-4 mt-8">
           {step > 1 && <button onClick={() => setStep((s) => s - 1)} className="flex-1 p-4 border border-slate-300 text-slate-700 rounded-xl font-bold hover:bg-slate-100 transition-colors">Back</button>}
           <button onClick={handleNext} disabled={loading || !canProceed()} className="flex-1 p-4 bg-amber-500 text-white rounded-xl font-bold disabled:opacity-50 hover:bg-amber-600 transition-colors">
-            {loading ? 'Processing...' : step === 4 && bookingMode === 'request' ? 'Confirm Booking' : step === 5 ? 'Confirm Booking' : 'Next'}
+            {loading ? 'Processing...' : step === 3 ? 'Confirm Booking' : 'Next'}
           </button>
         </div>
       </div>

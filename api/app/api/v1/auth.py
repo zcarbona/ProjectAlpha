@@ -109,9 +109,16 @@ async def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends
         db.add(user)
 
     db.add(AuditEvent(actor=str(user.id), action="login", record_type="User", record_id=user.id, ip_address=client_ip, user_agent=request.headers.get("user-agent")))
-    await db.commit()
+    
     access_token = create_access_token(subject=user.id)
-    return {"access_token": access_token, "token_type": "bearer"}
+    refresh_token = create_refresh_token(subject=user.id)
+    
+    user.refresh_token = get_password_hash(refresh_token)
+    user.refresh_token_expires = datetime.utcnow() + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
+    db.add(user)
+    
+    await db.commit()
+    return {"access_token": access_token, "refresh_token": refresh_token, "token_type": "bearer"}
 
 @router.get("/me", response_model=UserOut)
 async def me(user: User = Depends(get_current_user)):
@@ -144,6 +151,8 @@ async def update_me(payload: UserUpdate, request: Request, user: User = Depends(
     await db.refresh(user)
     return user
 
+from app.core.mailer import send_email
+
 @router.post("/auth/send-verification")
 async def send_verification(request: Request, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     if user.is_verified:
@@ -157,11 +166,43 @@ async def send_verification(request: Request, user: User = Depends(get_current_u
     db.add(AuditEvent(actor=str(user.id), action="send_verification", record_type="User", record_id=user.id, ip_address=_client_ip(request), user_agent=request.headers.get("user-agent")))
     await db.commit()
     
-    return {
-        "message": "Verification email sent",
-        "token": token,
-        "note": "In production, this token would be sent via email. For testing, use the token directly with /auth/verify-email."
-    }
+    # Send verification email asynchronously
+    await send_email(
+        user.email,
+        "Verify your Naql Account",
+        f"Your verification token is: {token}"
+    )
+    
+    return {"message": "Verification email sent"}
+
+from pydantic import BaseModel
+
+class RefreshRequest(BaseModel):
+    refresh_token: str
+
+@router.post("/refresh", response_model=Token)
+async def refresh(payload: RefreshRequest, db: AsyncSession = Depends(get_db)):
+    try:
+        payload_data = jwt.decode(payload.refresh_token, SECRET_KEY, algorithms=[ALGORITHM])
+        if payload_data.get("type") != "refresh":
+            raise HTTPException(status_code=401, detail="Invalid token type")
+        user_id = int(payload_data.get("sub"))
+    except Exception:
+        raise HTTPException(status_code=401, detail="Invalid or expired refresh token")
+
+    user = (await db.execute(select(User).where(User.id == user_id))).scalars().first()
+    if not user or not user.refresh_token or not verify_password(payload.refresh_token, user.refresh_token) or (user.refresh_token_expires and user.refresh_token_expires < datetime.utcnow()):
+        raise HTTPException(status_code=401, detail="Invalid or expired refresh token")
+
+    access_token = create_access_token(subject=user.id)
+    refresh_token = create_refresh_token(subject=user.id)
+    
+    user.refresh_token = get_password_hash(refresh_token)
+    user.refresh_token_expires = datetime.utcnow() + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
+    db.add(user)
+    await db.commit()
+    
+    return {"access_token": access_token, "refresh_token": refresh_token, "token_type": "bearer"}
 
 class VerifyEmailRequest(BaseModel):
     token: str = Field(min_length=1, max_length=128)

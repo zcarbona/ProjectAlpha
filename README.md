@@ -1,14 +1,31 @@
-# Naql frontend
+# Naql Logistics Platform
 
-The current setup runs the Flutter web frontend, FastAPI service, and a private MySQL 8.0 database in Docker. The frontend does not connect to the database; API requests are proxied through the frontend container, and only the API can access MySQL.
+Naql is a logistics and shipping marketplace platform running a Next.js web application frontend, FastAPI backend service, and a private MySQL 8.0 database in Docker.
 
-## Run
+## Architecture
 
+- **Frontend:** Next.js (React 19 / TypeScript / Tailwind CSS) with Leaflet maps.
+- **Backend:** FastAPI (Python 3.11+, SQLAlchemy 2.0 async, aiomysql, Pydantic v2).
+- **Database:** MySQL 8.0 container attached to the private `naql_network`.
+
+## Getting Started
+
+1. Copy the environment variables:
+   ```sh
+   cp .env.example .env
+   ```
+2. Set strong values for `MYSQL_PASSWORD`, `MYSQL_ROOT_PASSWORD`, and `SECRET_KEY` in `.env`.
+3. Start the services with Docker Compose:
+   ```sh
+   docker compose up --build
+   ```
+4. Access the frontend at [http://localhost:3000](http://localhost:3000).
+
+To stop the containers:
 ```sh
-cp .env.example .env
-docker compose up --build
+docker compose down
 ```
-
-Set strong, different `MYSQL_PASSWORD`, `MYSQL_ROOT_PASSWORD`, and `SECRET_KEY` values in `.env` before any deployment. Open http://localhost:8080. Only this frontend port is exposed; MySQL and the API remain on the private `naql_network`. Stop containers with `docker compose down`; the database remains in the `naql_mysql_data` volume. To intentionally remove the stored database too, use `docker compose down --volumes`.
-
-The frontend uses OpenStreetMap via Leaflet (web) and flutter_map (Flutter). No external map API key is required.
+To also remove the database volume:
+```sh
+docker compose down --volumes
+```
