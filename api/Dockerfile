@@ -8,7 +8,6 @@ ENV PIP_NO_CACHE_DIR=1
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
-    libmysqlclient-dev \
     pkg-config \
     && rm -rf /var/lib/apt/lists/*
 

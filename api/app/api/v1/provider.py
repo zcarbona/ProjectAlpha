@@ -189,7 +189,7 @@ async def list_providers(vehicle_class: str, db: AsyncSession = Depends(get_db))
     # Find providers that support this vehicle class
     result = await db.execute(
         select(Provider)
-        .join(Truck)
+        .join(Truck, Provider.id == Truck.provider_id)
         .where(Truck.vehicle_class == vehicle_class, Provider.is_active.is_(True), Truck.is_active.is_(True))
         .distinct()
     )
