@@ -97,7 +97,7 @@ class AdminStatsData {
 }
 
 class NaqlApi {
-  static const _base = '/api/v1';
+  static const _base = 'http://10.0.2.2:8000/api/v1';
 
   Map<String, String> _headers(String token) =>
       {'Authorization': 'Bearer $token', 'Content-Type': 'application/json'};
@@ -128,7 +128,7 @@ class NaqlApi {
 
   Future<JobData> createJob(
     String token, {
-    required int truckId,
+    required String vehicleClass,
     required String pickup,
     required String dropoff,
     required double pickupLat,
@@ -150,15 +150,27 @@ class NaqlApi {
       Uri.parse('$_base/jobs'),
       headers: _headers(token),
       body: json.encode({
-        'truck_id': truckId,
+        'vehicle_class': vehicleClass,
         'pickup': place(pickup, pickupLat, pickupLng),
         'dropoff': place(dropoff, dropoffLat, dropoffLng),
         'requested_min_price': min,
         'requested_max_price': max,
         'idempotency_key': id,
+        'booking_mode': 'request',
       }),
     );
-    if (r.statusCode != 201) throw Exception('Could not submit request: ${r.body}');
+    if (r.statusCode != 201) {
+      final error = json.decode(r.body);
+      String msg = 'Could not submit request';
+      if (error is Map && error.containsKey('detail')) {
+        if (error['detail'] is String) {
+          msg = error['detail'];
+        } else if (error['detail'] is List) {
+          msg = (error['detail'] as List).map((e) => e['msg']).join(', ');
+        }
+      }
+      throw Exception(msg);
+    }
     return JobData.fromJson(json.decode(r.body) as Map<String, dynamic>);
   }
 

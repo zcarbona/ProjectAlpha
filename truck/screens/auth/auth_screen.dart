@@ -30,7 +30,7 @@ class _AuthScreenState extends State<AuthScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            _isLogin ? 'Sign-in failed' : 'Registration failed. Use a unique email, username, and a 12+ character password.',
+            auth.error ?? (_isLogin ? 'Sign-in failed' : 'Registration failed'),
           ),
         ),
       );

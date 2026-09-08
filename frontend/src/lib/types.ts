@@ -20,10 +20,10 @@ export interface VehicleType {
 }
 
 export interface Place {
-  place_id: string;
+  place_id?: string | null;
   address: string;
-  lat: number;
-  lng: number;
+  lat?: number | null;
+  lng?: number | null;
 }
 
 export interface Job {

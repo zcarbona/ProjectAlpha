@@ -51,8 +51,13 @@ export async function login(identifier: string, password: string) {
     body: form,
   });
 
-  const data = await res.json();
-  if (!res.ok) throw new Error((data as any).detail || 'Login failed');
+  let data: any = {};
+  try {
+    data = await res.json();
+  } catch {
+    data = {};
+  }
+  if (!res.ok) throw new Error((data as any).detail || (data as any).message || 'Login failed');
   return data as { access_token: string; token_type: string };
 }
 
@@ -99,6 +104,8 @@ export async function getTrucks() {
   return request<Truck[]>('/trucks');
 }
 
+export type BookingMode = 'request' | 'provider_selection';
+
 export async function createJob(token: string, payload: {
   vehicle_class: string;
   pickup: Place;
@@ -106,12 +113,18 @@ export async function createJob(token: string, payload: {
   requested_min_price: number;
   requested_max_price: number;
   idempotency_key: string;
+  booking_mode: BookingMode;
+  provider_id?: number;
 }) {
   return request<Job>('/jobs', {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}` },
     body: JSON.stringify(payload),
   });
+}
+
+export async function getProviders(vehicleClass: string) {
+  return request<Array<{id: number, display_name: string}>>(`/providers?vehicle_class=${vehicleClass}`);
 }
 
 export async function getJobs(token: string) {
@@ -132,6 +145,27 @@ export async function getProviderJobs(token: string) {
     headers: { Authorization: `Bearer ${token}` },
   });
 }
+
+export async function getAvailableRequests(token: string) {
+  return request<Job[]>('/provider/requests', {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+export async function acceptJob(token: string, jobId: number) {
+  return request<Job>(`/jobs/${jobId}/accept`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+export async function declineJob(token: string, jobId: number) {
+  return request<{success: boolean}>(`/jobs/${jobId}/decline`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
 
 export async function approvePrice(token: string, jobId: number, payload: {
   decision: 'approved' | 'rejected';
@@ -204,5 +238,19 @@ export async function getAdminRequests(token: string) {
 export async function getAdminDrivers(token: string) {
   return request<AdminDriver[]>('/admin/drivers', {
     headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+export async function sendVerificationEmail(token: string) {
+  return request<{ message: string; token: string; note: string }>('/auth/send-verification', {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+export async function verifyEmail(token: string, verificationToken: string) {
+  return request<{ message: string }>('/auth/verify-email', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ token: verificationToken }),
   });
 }

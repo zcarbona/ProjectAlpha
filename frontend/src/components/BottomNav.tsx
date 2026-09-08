@@ -13,8 +13,7 @@ export default function BottomNav() {
   const items = isProvider
     ? [
         { href: '/provider', emoji: '🚛', label: 'FLEET' },
-        { href: '/provider/jobs', emoji: '📋', label: 'JOBS' },
-        { href: '/trip', emoji: '📍', label: 'TRIPS' },
+        { href: '/provider?tab=jobs', emoji: '📋', label: 'JOBS' },
         { href: '/profile', emoji: '👤', label: 'PROFILE' },
       ]
     : [

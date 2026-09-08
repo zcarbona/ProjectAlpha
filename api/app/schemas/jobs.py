@@ -1,6 +1,7 @@
 from datetime import datetime
 from typing import Literal
 from pydantic import BaseModel, Field, model_validator
+from app.models.models import BookingMode
 
 class Place(BaseModel):
     place_id: str | None = Field(default=None, max_length=128)
@@ -15,6 +16,8 @@ class JobCreate(BaseModel):
     requested_min_price: float = Field(gt=0)
     requested_max_price: float = Field(gt=0)
     idempotency_key: str = Field(min_length=16, max_length=128)
+    booking_mode: BookingMode = BookingMode.REQUEST
+    provider_id: int | None = Field(default=None)
 
     @model_validator(mode="after")
     def valid_range(self):
@@ -22,6 +25,8 @@ class JobCreate(BaseModel):
             raise ValueError("requested minimum cannot exceed maximum")
         if self.pickup.address == self.dropoff.address:
             raise ValueError("pickup and drop-off must differ")
+        if self.booking_mode == BookingMode.PROVIDER_SELECTION and self.provider_id is None:
+            raise ValueError("provider_id is required for provider_selection mode")
         return self
 
 class PriceDecision(BaseModel):

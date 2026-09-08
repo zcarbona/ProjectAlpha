@@ -106,7 +106,7 @@ class _BookFlowScreenState extends State<BookFlowScreen> {
     try {
       await _api.createJob(
         token,
-        truckId: _selectedVehicle!.id,
+        vehicleClass: _selectedVehicle!.code,
         pickup: _pickupController.text.trim(),
         dropoff: _dropoffController.text.trim(),
         pickupLat: 0.0,

@@ -12,12 +12,15 @@ class UserRole(str, enum.Enum):
     PROVIDER = "provider"
 
 class JobStatus(str, enum.Enum):
-    AWAITING_PRICE_APPROVAL = "awaiting_provider_price_approval"
-    AWAITING_PAYMENT = "awaiting_payment"
+    PENDING = "pending"
     ACCEPTED = "accepted"
-    REJECTED = "rejected"
-    CANCELLED = "cancelled"
+    IN_PROGRESS = "in_progress"
     COMPLETED = "completed"
+    CANCELLED = "cancelled"
+
+class BookingMode(str, enum.Enum):
+    REQUEST = "request"
+    PROVIDER_SELECTION = "provider_selection"
 
 class User(Base):
     __tablename__ = "users"
@@ -31,6 +34,8 @@ class User(Base):
     is_verified = Column(Boolean, default=False)
     failed_login_attempts = Column(Integer, default=0)
     locked_until = Column(DateTime, nullable=True)
+    verification_token = Column(String(128), nullable=True)
+    verification_token_expires = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -47,6 +52,7 @@ class Provider(Base):
     contact_details = Column(Text, nullable=True)
     is_verified = Column(Boolean, default=False)
     is_active = Column(Boolean, default=True)
+    is_available = Column(Boolean, default=True)
 
     user = relationship("User", back_populates="provider_profile")
     trucks = relationship("Truck", back_populates="provider")
@@ -82,29 +88,33 @@ class Job(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     customer_id = Column(Integer, ForeignKey("users.id"))
-    provider_id = Column(Integer, ForeignKey("providers.id"))
-    truck_id = Column(Integer, ForeignKey("trucks.id"))
+    provider_id = Column(Integer, ForeignKey("providers.id"), nullable=True)
+    truck_id = Column(Integer, ForeignKey("trucks.id"), nullable=True)
+    vehicle_class = Column(String(50), nullable=False)
+    
+    booking_mode = Column(Enum(BookingMode), default=BookingMode.REQUEST)
     
     pickup_address = Column(Text)
-    pickup_place_id = Column(String(100))
-    pickup_lat = Column(Float)
-    pickup_lng = Column(Float)
+    pickup_place_id = Column(String(100), nullable=True)
+    pickup_lat = Column(Float, nullable=True)
+    pickup_lng = Column(Float, nullable=True)
     
     dropoff_address = Column(Text)
-    dropoff_place_id = Column(String(100))
-    dropoff_lat = Column(Float)
-    dropoff_lng = Column(Float)
+    dropoff_place_id = Column(String(100), nullable=True)
+    dropoff_lat = Column(Float, nullable=True)
+    dropoff_lng = Column(Float, nullable=True)
     
     requested_min_price = Column(Float)
     requested_max_price = Column(Float)
     approved_price = Column(Float, nullable=True)
     
-    status = Column(Enum(JobStatus), default=JobStatus.AWAITING_PRICE_APPROVAL)
+    status = Column(Enum(JobStatus), default=JobStatus.PENDING)
     payment_status = Column(String(20), default="not_started") # not_started, pending, paid, failed
     
     scheduled_at = Column(DateTime, nullable=True)
     idempotency_key = Column(String(128), unique=True, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     customer = relationship("User", back_populates="jobs_as_customer")
     truck = relationship("Truck")
@@ -137,6 +147,18 @@ class PriceApproval(Base):
 
     job = relationship("Job")
     provider_user = relationship("User")
+
+class JobDecline(Base):
+    __tablename__ = "job_declines"
+
+    id = Column(Integer, primary_key=True, index=True)
+    job_id = Column(Integer, ForeignKey("jobs.id"))
+    provider_id = Column(Integer, ForeignKey("providers.id"))
+    timestamp = Column(DateTime, default=datetime.utcnow)
+
+    job = relationship("Job")
+    provider = relationship("Provider")
+
 
 class Payment(Base):
     __tablename__ = "payments"

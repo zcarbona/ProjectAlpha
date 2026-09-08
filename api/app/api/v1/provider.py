@@ -156,3 +156,15 @@ async def update_fleet(vehicle_type_id: int, payload: FleetUpdate, request: Requ
         quantity=fleet.quantity,
         is_active=fleet.is_active,
     )
+
+@router.get("/providers", response_model=list[dict])
+async def list_providers(vehicle_class: str, db: AsyncSession = Depends(get_db)):
+    # Find providers that support this vehicle class
+    result = await db.execute(
+        select(Provider)
+        .join(Truck)
+        .where(Truck.vehicle_class == vehicle_class, Provider.is_active.is_(True), Truck.is_active.is_(True))
+        .distinct()
+    )
+    providers = result.scalars().all()
+    return [{"id": p.id, "display_name": p.display_name} for p in providers]
