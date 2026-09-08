@@ -21,7 +21,7 @@ logger = structlog.get_logger()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("Initializing application - running migrations")
-    subprocess.run(["alembic", "upgrade", "head"], check=True, cwd="api")
+    subprocess.run(["alembic", "upgrade", "head"], check=True)
     await seed_company_data()
     yield
     logger.info("Shutting down application")

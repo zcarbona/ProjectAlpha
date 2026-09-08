@@ -163,6 +163,13 @@ export async function completeJob(token: string, jobId: number) {
   });
 }
 
+export async function acceptJob(token: string, jobId: number) {
+  return request<Job>(`/jobs/${jobId}/accept`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
 export async function declineJob(token: string, jobId: number) {
   return request<{success: boolean}>(`/jobs/${jobId}/decline`, {
     method: 'POST',

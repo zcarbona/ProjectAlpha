@@ -8,21 +8,61 @@ export function useJobEvents() {
   useEffect(() => {
     if (!token) return;
 
-    const eventSource = new EventSource(`/api/v1/events/stream`, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
+    const controller = new AbortController();
 
-    eventSource.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      setLastEvent(data);
+    const connect = async () => {
+      try {
+        const response = await fetch('/api/v1/events/stream', {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          signal: controller.signal,
+        });
+
+        if (!response.ok || !response.body) {
+          throw new Error(`SSE connection failed: ${response.status}`);
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        while (!controller.signal.aborted) {
+          const { value, done } = await reader.read();
+
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+
+          const messages = buffer.split('\n\n');
+          buffer = messages.pop() ?? '';
+
+          for (const message of messages) {
+            const dataLine = message
+              .split('\n')
+              .find((line) => line.startsWith('data: '));
+
+            if (!dataLine) continue;
+
+            try {
+              const data = JSON.parse(dataLine.slice(6));
+              setLastEvent(data);
+            } catch {
+              // Ignore malformed SSE messages.
+            }
+          }
+        }
+      } catch (error) {
+        if (!controller.signal.aborted) {
+          console.error('Job event stream error:', error);
+        }
+      }
     };
 
-    eventSource.onerror = () => {
-      eventSource.close();
-    };
+    connect();
 
     return () => {
-      eventSource.close();
+      controller.abort();
     };
   }, [token]);
 

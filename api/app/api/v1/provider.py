@@ -6,7 +6,9 @@ from app.core.database import get_db
 from app.core.security import get_current_user, require_role, _client_ip
 from app.models.models import User, UserRole, Provider, Truck, ProviderFleet, AuditEvent, VehicleType, Job
 from app.api.v1.events import manager
-...
+
+router = APIRouter()
+
 @router.post("/provider/location")
 async def update_location(lat: float, lon: float, user: User = Depends(require_role(UserRole.PROVIDER)), db: AsyncSession = Depends(get_db)):
     provider = (await db.execute(select(Provider).where(Provider.user_id == user.id))).scalars().first()
