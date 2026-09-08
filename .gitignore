@@ -1,7 +1,6 @@
 *.png
 endtoend.md
 .dockerignore
-.env
 .env.example
 .gemini/
 .github/

@@ -1,3 +1,4 @@
+from jose import jwt
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel, Field
@@ -5,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import or_, update
 from sqlalchemy.future import select
 from app.core.database import get_db
-from app.core.security import get_password_hash, verify_password, create_access_token, validate_password_strength, _check_rate_limit, MAX_LOGIN_ATTEMPTS, LOCK_MINUTES, _client_ip
+from app.core.security import get_password_hash, verify_password, create_access_token, create_refresh_token, REFRESH_TOKEN_EXPIRE_DAYS, validate_password_strength, _check_rate_limit, MAX_LOGIN_ATTEMPTS, LOCK_MINUTES, _client_ip, SECRET_KEY, ALGORITHM
 from app.models.models import User, UserRole, AuditEvent, Provider
 from app.schemas.user import UserCreate, UserOut, Token, UserUpdate
 from app.core.security import get_current_user

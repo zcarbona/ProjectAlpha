@@ -17,6 +17,9 @@ class JobStatus(str, enum.Enum):
     IN_PROGRESS = "in_progress"
     COMPLETED = "completed"
     CANCELLED = "cancelled"
+    AWAITING_PRICE_APPROVAL = "awaiting_price_approval"
+    AWAITING_PAYMENT = "awaiting_payment"
+    REJECTED = "rejected"
 
 class BookingMode(str, enum.Enum):
     REQUEST = "request"
@@ -36,7 +39,7 @@ class User(Base):
     locked_until = Column(DateTime, nullable=True)
     verification_token = Column(String(128), nullable=True)
     verification_token_expires = Column(DateTime, nullable=True)
-    refresh_token = Column(String(255), nullable=True, index=True)
+    refresh_token = Column(Text, nullable=True, index=True)
     refresh_token_expires = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
