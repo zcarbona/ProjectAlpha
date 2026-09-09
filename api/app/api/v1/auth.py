@@ -5,6 +5,7 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import or_, update
 from sqlalchemy.future import select
+from sqlalchemy.exc import IntegrityError
 from app.core.database import get_db
 from app.core.security import get_password_hash, verify_password, create_access_token, create_refresh_token, REFRESH_TOKEN_EXPIRE_DAYS, validate_password_strength, _check_rate_limit, MAX_LOGIN_ATTEMPTS, LOCK_MINUTES, _client_ip, SECRET_KEY, ALGORITHM
 from app.models.models import User, UserRole, AuditEvent, Provider, Job
@@ -127,18 +128,45 @@ async def me(user: User = Depends(get_current_user)):
 @router.patch("/me", response_model=UserOut)
 async def update_me(payload: UserUpdate, request: Request, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     # Role changes require an administrator-only workflow and are not accepted here.
+    update_data = payload.model_dump(exclude_unset=True)
+
+    # Check uniqueness at application level before modifying
+    if "phone_number" in update_data and payload.phone_number and payload.phone_number != user.phone_number:
+        query = select(User).where(User.phone_number == payload.phone_number, User.id != user.id)
+        existing = (await db.execute(query)).scalars().first()
+        if existing:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Phone number already in use")
+
+    if "email" in update_data and payload.email and payload.email != user.email:
+        query = select(User).where(User.email == payload.email, User.id != user.id)
+        existing = (await db.execute(query)).scalars().first()
+        if existing:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already in use")
+
+    if "username" in update_data and payload.username and payload.username != user.username:
+        query = select(User).where(User.username == payload.username, User.id != user.id)
+        existing = (await db.execute(query)).scalars().first()
+        if existing:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Username already in use")
+
     for field in ("email", "username", "phone_number"):
-        value = getattr(payload, field)
-        if value is not None:
-            setattr(user, field, value)
-    if payload.password:
+        if field in update_data:
+            setattr(user, field, update_data[field])
+
+    if "password" in update_data and payload.password:
         try:
             validate_password_strength(payload.password)
         except ValueError as e:
-            raise HTTPException(status_code=422, detail=str(e))
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e))
         user.hashed_password = get_password_hash(payload.password)
+
     db.add(AuditEvent(actor=str(user.id), action="update_profile", record_type="User", record_id=user.id, ip_address=_client_ip(request), user_agent=request.headers.get("user-agent")))
-    await db.commit()
+    try:
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="A user with these details already exists")
+
     await db.refresh(user)
     return user
 

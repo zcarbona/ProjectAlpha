@@ -1,42 +1,32 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import RoleGuard from '@/components/RoleGuard';
 import { updateUser } from '@/lib/api';
 
+const PHONE_REGEX = /^\+?[1-9]\d{1,14}$/;
+
 function ProfilePageContent() {
   const { user, token, logout, refreshUser } = useAuth();
-  const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState('');
 
-  useEffect(() => {
-    if (!token) return;
-  }, [token]);
+  // Profile Details state
+  const [username, setUsername] = useState(user?.username || '');
+  const [email, setEmail] = useState(user?.email || '');
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [profileMessage, setProfileMessage] = useState('');
+  const [profileError, setProfileError] = useState('');
 
-  const handleUpdate = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    if (!token) return;
-    setSaving(true);
-    setMessage('');
-    const form = e.currentTarget;
-    const username = (form.elements.namedItem('username') as HTMLInputElement).value;
-    const email = (form.elements.namedItem('email') as HTMLInputElement).value;
-    const password = (form.elements.namedItem('password') as HTMLInputElement).value;
+  // Password Update state
+  const [password, setPassword] = useState('');
+  const [savingPassword, setSavingPassword] = useState(false);
+  const [passwordMessage, setPasswordMessage] = useState('');
+  const [passwordError, setPasswordError] = useState('');
 
-    try {
-      await updateUser(token, {
-        ...(username ? { username } : {}),
-        ...(email ? { email } : {}),
-        ...(password ? { password } : {}),
-      });
-      await refreshUser();
-      setMessage('Profile updated successfully');
-    } catch {
-      setMessage('Failed to update profile');
-    } finally {
-      setSaving(false);
-    }
-  };
+  // Phone Number state
+  const [phoneNumber, setPhoneNumber] = useState(user?.phone_number || '');
+  const [savingPhone, setSavingPhone] = useState(false);
+  const [phoneMessage, setPhoneMessage] = useState('');
+  const [phoneError, setPhoneError] = useState('');
 
   if (!user) {
     return (
@@ -45,6 +35,84 @@ function ProfilePageContent() {
       </div>
     );
   }
+
+  const handleProfileUpdate = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!token) return;
+    setSavingProfile(true);
+    setProfileMessage('');
+    setProfileError('');
+
+    try {
+      await updateUser(token, {
+        ...(username ? { username } : {}),
+        ...(email ? { email } : {}),
+      });
+      await refreshUser();
+      setProfileMessage('Profile details updated successfully');
+    } catch (err: unknown) {
+      const errorMsg = err instanceof Error ? err.message : 'Failed to update profile details';
+      setProfileError(errorMsg);
+    } finally {
+      setSavingProfile(false);
+    }
+  };
+
+  const handlePasswordUpdate = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!token) return;
+    setPasswordMessage('');
+    setPasswordError('');
+
+    if (!password || password.length < 12) {
+      setPasswordError('Password must be at least 12 characters');
+      return;
+    }
+
+    setSavingPassword(true);
+    try {
+      await updateUser(token, { password });
+      setPassword('');
+      setPasswordMessage('Password updated successfully');
+    } catch (err: unknown) {
+      const errorMsg = err instanceof Error ? err.message : 'Failed to update password';
+      setPasswordError(errorMsg);
+    } finally {
+      setSavingPassword(false);
+    }
+  };
+
+  const handlePhoneUpdate = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!token) return;
+    setPhoneMessage('');
+    setPhoneError('');
+
+    const cleanPhone = phoneNumber.trim();
+    if (!cleanPhone) {
+      setPhoneError('Please enter a phone number');
+      return;
+    }
+
+    if (!PHONE_REGEX.test(cleanPhone)) {
+      setPhoneError('Please enter a valid phone number (e.g. +2010123456789)');
+      return;
+    }
+
+    setSavingPhone(true);
+    try {
+      const isNew = !user.phone_number;
+      await updateUser(token, { phone_number: cleanPhone });
+      await refreshUser();
+      setPhoneNumber(cleanPhone);
+      setPhoneMessage(isNew ? 'Phone number added successfully' : 'Phone number updated successfully');
+    } catch (err: unknown) {
+      const errorMsg = err instanceof Error ? err.message : 'Failed to update phone number';
+      setPhoneError(errorMsg);
+    } finally {
+      setSavingPhone(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-slate-900 py-8 px-4">
@@ -60,19 +128,28 @@ function ProfilePageContent() {
             </div>
           </div>
 
-          {message && (
-            <div className="mb-4 p-3 bg-emerald-900/50 border border-emerald-700 text-emerald-200 rounded-lg text-sm">
-              {message}
-            </div>
-          )}
+          {/* Profile Details Form */}
+          <form onSubmit={handleProfileUpdate} className="space-y-4">
+            <h2 className="text-lg font-semibold text-white">Profile Details</h2>
 
-          <form onSubmit={handleUpdate} className="space-y-4">
+            {profileMessage && (
+              <div className="p-3 bg-emerald-900/50 border border-emerald-700 text-emerald-200 rounded-lg text-sm">
+                {profileMessage}
+              </div>
+            )}
+            {profileError && (
+              <div className="p-3 bg-red-900/50 border border-red-700 text-red-200 rounded-lg text-sm">
+                {profileError}
+              </div>
+            )}
+
             <div>
               <label className="block text-sm font-medium mb-1 text-slate-300">Username</label>
               <input
                 name="username"
                 type="text"
-                defaultValue={user.username || ''}
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
                 className="w-full p-3 border rounded-lg bg-slate-900 border-slate-600 text-white placeholder-slate-400 focus:border-blue-500 focus:outline-none"
               />
             </div>
@@ -81,28 +158,99 @@ function ProfilePageContent() {
               <input
                 name="email"
                 type="email"
-                defaultValue={user.email || ''}
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 className="w-full p-3 border rounded-lg bg-slate-900 border-slate-600 text-white placeholder-slate-400 focus:border-blue-500 focus:outline-none"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1 text-slate-300">New Password</label>
-              <input
-                name="password"
-                type="password"
-                placeholder="Leave blank to keep current"
-                className="w-full p-3 border rounded-lg bg-slate-900 border-slate-600 text-white placeholder-slate-400 focus:border-blue-500 focus:outline-none"
-                minLength={12}
               />
             </div>
             <button
               type="submit"
-              disabled={saving}
-              className="w-full p-4 bg-blue-700 text-white rounded-xl font-bold disabled:opacity-50 hover:bg-blue-800 transition-colors"
+              disabled={savingProfile}
+              className="w-full p-3 bg-blue-700 text-white rounded-xl font-bold disabled:opacity-50 hover:bg-blue-800 transition-colors"
             >
-              {saving ? 'Saving...' : 'Update Profile'}
+              {savingProfile ? 'Saving...' : 'Update Details'}
             </button>
           </form>
+
+          {/* Password Update Section */}
+          <div className="border-t border-slate-700 pt-6 mt-6">
+            <form onSubmit={handlePasswordUpdate} className="space-y-4">
+              <h2 className="text-lg font-semibold text-white">Password</h2>
+
+              {passwordMessage && (
+                <div className="p-3 bg-emerald-900/50 border border-emerald-700 text-emerald-200 rounded-lg text-sm">
+                  {passwordMessage}
+                </div>
+              )}
+              {passwordError && (
+                <div className="p-3 bg-red-900/50 border border-red-700 text-red-200 rounded-lg text-sm">
+                  {passwordError}
+                </div>
+              )}
+
+              <div>
+                <label className="block text-sm font-medium mb-1 text-slate-300">New Password</label>
+                <input
+                  name="password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Enter new password (min 12 characters)"
+                  className="w-full p-3 border rounded-lg bg-slate-900 border-slate-600 text-white placeholder-slate-400 focus:border-blue-500 focus:outline-none"
+                  minLength={12}
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={savingPassword}
+                className="w-full p-3 bg-blue-700 text-white rounded-xl font-bold disabled:opacity-50 hover:bg-blue-800 transition-colors"
+              >
+                {savingPassword ? 'Saving...' : 'Update Password'}
+              </button>
+            </form>
+          </div>
+
+          {/* Phone Number Section - directly under password update section */}
+          <div className="border-t border-slate-700 pt-6 mt-6">
+            <form onSubmit={handlePhoneUpdate} className="space-y-4">
+              <h2 className="text-lg font-semibold text-white">Phone Number</h2>
+
+              {phoneMessage && (
+                <div className="p-3 bg-emerald-900/50 border border-emerald-700 text-emerald-200 rounded-lg text-sm">
+                  {phoneMessage}
+                </div>
+              )}
+              {phoneError && (
+                <div className="p-3 bg-red-900/50 border border-red-700 text-red-200 rounded-lg text-sm">
+                  {phoneError}
+                </div>
+              )}
+
+              <div>
+                <label className="block text-sm font-medium mb-1 text-slate-300">Phone Number</label>
+                <input
+                  name="phone_number"
+                  type="tel"
+                  value={phoneNumber}
+                  onChange={(e) => setPhoneNumber(e.target.value)}
+                  placeholder="Enter phone number (e.g. +2010123456789)"
+                  pattern="^\+?[1-9]\d{1,14}$"
+                  className="w-full p-3 border rounded-lg bg-slate-900 border-slate-600 text-white placeholder-slate-400 focus:border-blue-500 focus:outline-none"
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={savingPhone}
+                className="w-full p-3 bg-blue-700 text-white rounded-xl font-bold disabled:opacity-50 hover:bg-blue-800 transition-colors"
+              >
+                {savingPhone
+                  ? 'Saving...'
+                  : user.phone_number
+                  ? 'Update Phone Number'
+                  : 'Add Phone Number'}
+              </button>
+            </form>
+          </div>
         </div>
 
         <button

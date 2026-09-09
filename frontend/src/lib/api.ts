@@ -74,7 +74,10 @@ export async function getCurrentUser(token: string) {
   });
 }
 
-export async function updateUser(token: string, payload: { username?: string; email?: string; password?: string }) {
+export async function updateUser(
+  token: string,
+  payload: { username?: string; email?: string; password?: string; phone_number?: string }
+) {
   return request<User>('/auth/me', {
     method: 'PATCH',
     headers: { Authorization: `Bearer ${token}` },
