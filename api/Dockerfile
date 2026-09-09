@@ -12,7 +12,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
-RUN pip install -r requirements.txt
+RUN pip install --no-cache-dir --upgrade "pip>=25.0" "setuptools>=83.0.0" "wheel>=0.46.2" \
+    && pip install -r requirements.txt
 
 COPY . .
 

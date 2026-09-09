@@ -3,6 +3,8 @@ FROM node:20-alpine AS deps
 
 WORKDIR /app
 
+RUN apk update && apk upgrade --no-cache && npm install -g npm@11.19.1
+
 COPY package*.json ./
 RUN npm ci
 
@@ -11,6 +13,8 @@ RUN npm ci
 FROM node:20-alpine AS builder
 
 WORKDIR /app
+
+RUN apk update && apk upgrade --no-cache && npm install -g npm@11.19.1
 
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
@@ -24,6 +28,8 @@ RUN npm run build
 FROM node:20-alpine AS runner
 
 WORKDIR /app
+
+RUN apk update && apk upgrade --no-cache && npm install -g npm@11.19.1
 
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
