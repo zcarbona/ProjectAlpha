@@ -31,6 +31,9 @@ function ProviderDashboard() {
   const [requests, setRequests] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [showTruckModal, setShowTruckModal] = useState(false);
+  const [selectedRequestId, setSelectedRequestId] = useState<number | null>(null);
+  const [selectedTruckId, setSelectedTruckId] = useState<number | 0>(0);
   const { token } = useAuth();
 
   const loadAll = async () => {
@@ -54,9 +57,18 @@ function ProviderDashboard() {
   };
 
   const handleAccept = async (jobId: number) => {
-    if (!token) return;
+    setSelectedRequestId(jobId);
+    setSelectedTruckId(0);
+    setShowTruckModal(true);
+  };
+
+  const handleConfirmAccept = async () => {
+    if (!token || !selectedRequestId || !selectedTruckId) return;
     try {
-      await acceptJob(token, jobId);
+      await acceptJob(token, selectedRequestId, selectedTruckId);
+      setShowTruckModal(false);
+      setSelectedRequestId(null);
+      setSelectedTruckId(0);
       loadAll();
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to accept job');
@@ -443,6 +455,45 @@ function ProviderDashboard() {
           </div>
         )}
       </div>
+
+      {showTruckModal && selectedRequestId !== null && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-bold text-slate-900 mb-2">Assign Truck</h3>
+            <p className="text-sm text-slate-600 mb-4">Select a truck to assign to request #{selectedRequestId}.</p>
+            <select
+              value={selectedTruckId}
+              onChange={(e) => setSelectedTruckId(Number(e.target.value))}
+              className="w-full p-3 border rounded-lg bg-white border-slate-300 text-slate-900 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 focus:outline-none mb-4"
+              required
+            >
+              <option value={0}>Select a truck</option>
+              {trucks
+                .filter((t) => t.is_active && t.vehicle_class === requests.find((r) => r.id === selectedRequestId)?.vehicle_class)
+                .map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.plate_number || `Truck #${t.id}`} — {t.vehicle_class}
+                  </option>
+                ))}
+            </select>
+            <div className="flex gap-2">
+              <button
+                onClick={() => { setShowTruckModal(false); setSelectedRequestId(null); setSelectedTruckId(0); }}
+                className="flex-1 p-3 border border-slate-300 text-slate-700 rounded-lg font-bold hover:bg-slate-100 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmAccept}
+                disabled={!selectedTruckId}
+                className="flex-1 p-3 bg-amber-500 text-white rounded-lg font-bold disabled:opacity-50 hover:bg-amber-600 transition-colors"
+              >
+                Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

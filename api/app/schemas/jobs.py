@@ -47,6 +47,9 @@ class JobOut(BaseModel):
     pickup_address: str | None = None
     dropoff_address: str | None = None
 
+class JobAccept(BaseModel):
+    truck_id: int = Field(gt=0)
+
 class ProviderStatusUpdate(BaseModel):
     is_available: bool
 

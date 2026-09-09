@@ -6,7 +6,7 @@ from sqlalchemy.orm import selectinload
 from app.core.database import get_db
 from app.core.security import get_current_user, require_role, _client_ip
 from app.models.models import User, UserRole, Provider, Truck, Job, TruckLock, JobStatus, PriceApproval, Payment, AuditEvent, BookingMode, JobDecline
-from app.schemas.jobs import JobCreate, JobOut, PriceDecision
+from app.schemas.jobs import JobCreate, JobOut, PriceDecision, JobAccept
 from app.api.v1.events import manager
 import logging
 
@@ -158,7 +158,7 @@ async def create_job(payload: JobCreate, request: Request, user: User = Depends(
     return to_output(job)
 
 @router.post("/jobs/{job_id}/accept", response_model=JobOut)
-async def accept_job(job_id: int, request: Request, user: User = Depends(require_role(UserRole.PROVIDER)), db: AsyncSession = Depends(get_db)):
+async def accept_job(job_id: int, payload: JobAccept, request: Request, user: User = Depends(require_role(UserRole.PROVIDER)), db: AsyncSession = Depends(get_db)):
     # 1. Get provider profile
     provider = (await db.execute(select(Provider).where(Provider.user_id == user.id))).scalars().first()
     if not provider:
@@ -173,8 +173,17 @@ async def accept_job(job_id: int, request: Request, user: User = Depends(require
         logger.info("accept_job 403: provider_unavailable provider_id=%s", provider.id)
         raise HTTPException(status_code=403, detail="Provider is busy")
 
-    # 2. Get provider's active trucks
-    trucks = (await db.execute(select(Truck).where(Truck.provider_id == provider.id, Truck.is_active.is_(True)))).scalars().all()
+    # 2. Get selected truck and validate ownership/activity/class
+    truck = (await db.execute(
+        select(Truck).where(
+            Truck.id == payload.truck_id,
+            Truck.provider_id == provider.id,
+            Truck.is_active.is_(True),
+        )
+    )).scalars().first()
+    if not truck:
+        logger.info("accept_job 403: invalid_truck provider_id=%s truck_id=%s", provider.id, payload.truck_id)
+        raise HTTPException(status_code=403, detail="Invalid truck assignment")
 
     # 3. Get job
     job = (await db.execute(select(Job).where(Job.id == job_id))).scalars().first()
@@ -191,16 +200,16 @@ async def accept_job(job_id: int, request: Request, user: User = Depends(require
         raise HTTPException(status_code=403, detail="Job is assigned to another provider")
 
     # 5. Check vehicle support
-    if not any(t.vehicle_class == job.vehicle_class for t in trucks):
-        logger.info("accept_job 403: no_matching_truck provider_id=%s job_id=%s vehicle_class=%s truck_classes=%s", provider.id, job_id, job.vehicle_class, [t.vehicle_class for t in trucks])
-        raise HTTPException(status_code=403, detail="Provider does not support this vehicle")
+    if truck.vehicle_class != job.vehicle_class:
+        logger.info("accept_job 403: truck_class_mismatch provider_id=%s job_id=%s truck_class=%s job_class=%s", provider.id, job_id, truck.vehicle_class, job.vehicle_class)
+        raise HTTPException(status_code=403, detail="Selected truck does not support this vehicle")
 
-    # 6. Atomic claim
+    # 6. Atomic claim with truck assignment
     from sqlalchemy import update
     result = await db.execute(
         update(Job)
         .where(Job.id == job_id, Job.status == JobStatus.PENDING)
-        .values(provider_id=provider.id, status=JobStatus.ACCEPTED)
+        .values(provider_id=provider.id, truck_id=truck.id, status=JobStatus.ACCEPTED)
     )
     if result.rowcount == 0:
         raise HTTPException(status_code=409, detail="This request is no longer available.")

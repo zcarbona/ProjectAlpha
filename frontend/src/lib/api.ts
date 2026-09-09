@@ -163,10 +163,11 @@ export async function completeJob(token: string, jobId: number) {
   });
 }
 
-export async function acceptJob(token: string, jobId: number) {
+export async function acceptJob(token: string, jobId: number, truckId: number) {
   return request<Job>(`/jobs/${jobId}/accept`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ truck_id: truckId }),
   });
 }
 
