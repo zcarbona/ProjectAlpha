@@ -1,0 +1,27 @@
+@import "tailwindcss";
+
+:root {
+  /* Industrial Trust Theme */
+  --slate-900: #1e293b;
+  --amber-500: #f59e0b;
+  --emerald-500: #10b981;
+  --slate-50: #f8fafc;
+  --white: #ffffff;
+  
+  --background: var(--slate-50);
+  --foreground: var(--slate-900);
+}
+
+@theme inline {
+  --color-primary: var(--slate-900);
+  --color-action: var(--amber-500);
+  --color-success: var(--emerald-500);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: 'Inter', system-ui, sans-serif;
+}
