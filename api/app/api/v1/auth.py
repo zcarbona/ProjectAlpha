@@ -1,17 +1,16 @@
 from jose import jwt
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import or_, update
 from sqlalchemy.future import select
 from app.core.database import get_db
 from app.core.security import get_password_hash, verify_password, create_access_token, create_refresh_token, REFRESH_TOKEN_EXPIRE_DAYS, validate_password_strength, _check_rate_limit, MAX_LOGIN_ATTEMPTS, LOCK_MINUTES, _client_ip, SECRET_KEY, ALGORITHM
-from app.models.models import User, UserRole, AuditEvent, Provider
+from app.models.models import User, UserRole, AuditEvent, Provider, Job
 from app.schemas.user import UserCreate, UserOut, Token, UserUpdate
 from app.core.security import get_current_user
 from datetime import datetime, timedelta
-import secrets
 
 router = APIRouter(prefix="/auth", tags=["authentication"])
 
@@ -152,32 +151,6 @@ async def update_me(payload: UserUpdate, request: Request, user: User = Depends(
     await db.refresh(user)
     return user
 
-from app.core.mailer import send_email
-
-@router.post("/auth/send-verification")
-async def send_verification(request: Request, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
-    if user.is_verified:
-        raise HTTPException(status_code=400, detail="Email already verified")
-    if not user.email:
-        raise HTTPException(status_code=400, detail="No email address on file")
-    
-    token = secrets.token_urlsafe(32)
-    user.verification_token = token
-    user.verification_token_expires = datetime.utcnow() + timedelta(hours=24)
-    db.add(AuditEvent(actor=str(user.id), action="send_verification", record_type="User", record_id=user.id, ip_address=_client_ip(request), user_agent=request.headers.get("user-agent")))
-    await db.commit()
-    
-    # Send verification email asynchronously
-    await send_email(
-        user.email,
-        "Verify your Naql Account",
-        f"Your verification token is: {token}"
-    )
-    
-    return {"message": "Verification email sent"}
-
-from pydantic import BaseModel
-
 class RefreshRequest(BaseModel):
     refresh_token: str
 
@@ -204,25 +177,3 @@ async def refresh(payload: RefreshRequest, db: AsyncSession = Depends(get_db)):
     await db.commit()
     
     return {"access_token": access_token, "refresh_token": refresh_token, "token_type": "bearer"}
-
-class VerifyEmailRequest(BaseModel):
-    token: str = Field(min_length=1, max_length=128)
-
-@router.post("/auth/verify-email")
-async def verify_email(payload: VerifyEmailRequest, request: Request, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
-    if user.is_verified:
-        raise HTTPException(status_code=400, detail="Email already verified")
-    
-    if not user.verification_token or user.verification_token != payload.token:
-        raise HTTPException(status_code=400, detail="Invalid verification token")
-    
-    if user.verification_token_expires and user.verification_token_expires < datetime.utcnow():
-        raise HTTPException(status_code=400, detail="Verification token expired")
-    
-    user.is_verified = True
-    user.verification_token = None
-    user.verification_token_expires = None
-    db.add(AuditEvent(actor=str(user.id), action="verify_email", record_type="User", record_id=user.id, ip_address=_client_ip(request), user_agent=request.headers.get("user-agent")))
-    await db.commit()
-    await db.refresh(user)
-    return {"message": "Email verified successfully"}

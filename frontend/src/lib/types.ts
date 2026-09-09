@@ -6,7 +6,6 @@ export interface User {
   email: string | null;
   phone_number: string | null;
   role: UserRole;
-  is_verified: boolean;
 }
 
 export interface VehicleType {

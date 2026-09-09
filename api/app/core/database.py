@@ -18,6 +18,7 @@ async def get_db():
 
 async def seed_company_data():
     from app.models.models import Company, VehicleType, City, Provider, User, UserRole
+    from app.core.security import get_password_hash
     async with AsyncSessionLocal() as session:
         existing_company = await session.execute(select(Company))
         if existing_company.scalars().first():
@@ -56,9 +57,8 @@ async def seed_company_data():
         provider_user = User(
             username="provider_test",
             email="provider@test.com",
-            hashed_password="...", # This should be hashed in real scenarios
+            hashed_password=get_password_hash("testpass123"),
             role=UserRole.PROVIDER,
-            is_verified=True
         )
         session.add(provider_user)
         await session.flush()

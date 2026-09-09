@@ -8,10 +8,11 @@ from app.core.security import get_current_user, require_role, _client_ip
 from app.models.models import User, UserRole, Provider, Truck, Job, TruckLock, JobStatus, PriceApproval, Payment, AuditEvent, BookingMode, JobDecline
 from app.schemas.jobs import JobCreate, JobOut, PriceDecision
 from app.api.v1.events import manager
-
+import logging
 
 router = APIRouter(tags=["jobs"])
 LOCK_MINUTES = 15
+logger = logging.getLogger(__name__)
 
 def to_output(job: Job) -> JobOut:
     # Safely access attributes that might not be loaded
@@ -104,6 +105,7 @@ async def update_provider_status(is_available: bool, user: User = Depends(requir
     await db.commit()
     return {"is_available": provider.is_available}
 
+@router.get("/provider/requests", response_model=list[JobOut])
 async def get_available_requests(user: User = Depends(require_role(UserRole.PROVIDER)), db: AsyncSession = Depends(get_db)):
     provider = (await db.execute(select(Provider).where(Provider.user_id == user.id))).scalars().first()
     if not provider:
@@ -133,8 +135,6 @@ async def decline_job(job_id: int, user: User = Depends(require_role(UserRole.PR
 
 @router.post("/jobs", response_model=JobOut, status_code=status.HTTP_201_CREATED)
 async def create_job(payload: JobCreate, request: Request, user: User = Depends(require_role(UserRole.CUSTOMER)), db: AsyncSession = Depends(get_db)):
-    if not user.is_verified:
-        raise HTTPException(status_code=403, detail="Verified email or phone is required before requesting a truck")
     existing = (await db.execute(select(Job).options(selectinload(Job.truck_lock)).where(Job.customer_id == user.id, Job.idempotency_key == payload.idempotency_key))).scalars().first()
     if existing:
         return to_output(existing)
@@ -154,48 +154,69 @@ async def create_job(payload: JobCreate, request: Request, user: User = Depends(
     await db.commit()
     await db.refresh(job)
     # Eagerly load relationships before to_output
-    job = (await db.execute(select(Job).options(selectinload(Job.truck), selectinload(Job.provider)).where(Job.id == job.id))).scalars().one()
+    job = (await db.execute(select(Job).options(selectinload(Job.truck), selectinload(Job.provider), selectinload(Job.truck_lock)).where(Job.id == job.id))).scalars().one()
     return to_output(job)
 
 @router.post("/jobs/{job_id}/accept", response_model=JobOut)
 async def accept_job(job_id: int, request: Request, user: User = Depends(require_role(UserRole.PROVIDER)), db: AsyncSession = Depends(get_db)):
-    # 1. Get provider
-    provider = (await db.execute(select(Provider).where(Provider.user_id == user.id, Provider.is_active.is_(True), Provider.is_available.is_(True)))).scalars().first()
+    # 1. Get provider profile
+    provider = (await db.execute(select(Provider).where(Provider.user_id == user.id))).scalars().first()
     if not provider:
-        raise HTTPException(status_code=403, detail="Provider not found, inactive, or busy")
-    
+        logger.info("accept_job 403: provider_not_found user_id=%s", user.id)
+        raise HTTPException(status_code=403, detail="Provider not found")
+
+    if not provider.is_active:
+        logger.info("accept_job 403: provider_inactive provider_id=%s", provider.id)
+        raise HTTPException(status_code=403, detail="Provider is inactive")
+
+    if not provider.is_available:
+        logger.info("accept_job 403: provider_unavailable provider_id=%s", provider.id)
+        raise HTTPException(status_code=403, detail="Provider is busy")
+
     # 2. Get provider's active trucks
     trucks = (await db.execute(select(Truck).where(Truck.provider_id == provider.id, Truck.is_active.is_(True)))).scalars().all()
-    
-    # 3. Get job
-    job = (await db.execute(select(Job).where(Job.id == job_id, Job.status == JobStatus.PENDING))).scalars().first()
-    if not job:
-        raise HTTPException(status_code=404, detail="Job not found or not pending")
 
-    # 4. Check vehicle support
+    # 3. Get job
+    job = (await db.execute(select(Job).where(Job.id == job_id))).scalars().first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    if job.status != JobStatus.PENDING:
+        logger.info("accept_job 409: job_not_pending job_id=%s status=%s", job_id, job.status)
+        raise HTTPException(status_code=409, detail="This request is no longer available.")
+
+    # 4. Check provider ownership for provider-selection mode
+    if job.booking_mode == BookingMode.PROVIDER_SELECTION and job.provider_id != provider.id:
+        logger.info("accept_job 403: wrong_provider job_id=%s assigned_provider_id=%s attempt_provider_id=%s", job_id, job.provider_id, provider.id)
+        raise HTTPException(status_code=403, detail="Job is assigned to another provider")
+
+    # 5. Check vehicle support
     if not any(t.vehicle_class == job.vehicle_class for t in trucks):
+        logger.info("accept_job 403: no_matching_truck provider_id=%s job_id=%s vehicle_class=%s truck_classes=%s", provider.id, job_id, job.vehicle_class, [t.vehicle_class for t in trucks])
         raise HTTPException(status_code=403, detail="Provider does not support this vehicle")
 
-    # 5. Atomic update: try to claim job if it's still PENDING
+    # 6. Atomic claim
     from sqlalchemy import update
     result = await db.execute(
         update(Job)
         .where(Job.id == job_id, Job.status == JobStatus.PENDING)
         .values(provider_id=provider.id, status=JobStatus.ACCEPTED)
     )
-    
     if result.rowcount == 0:
         raise HTTPException(status_code=409, detail="This request is no longer available.")
-    
-    # 6. Mark provider as unavailable (as per requirement 29)
+
+    # 7. Mark provider unavailable
     provider.is_available = False
     db.add(provider)
-    await db.commit()
-    
-    # 7. Reload job to return
-    job = (await db.execute(select(Job).options(selectinload(Job.truck), selectinload(Job.provider)).where(Job.id == job_id))).scalars().first()
     db.add(AuditEvent(actor=str(user.id), action="accept_job", record_type="Job", record_id=job.id, ip_address=_client_ip(request), user_agent=request.headers.get("user-agent")))
     await db.commit()
+
+    # 8. Reload and return
+    job = (await db.execute(
+        select(Job)
+        .options(selectinload(Job.truck), selectinload(Job.provider), selectinload(Job.truck_lock))
+        .where(Job.id == job_id)
+    )).scalars().first()
     return to_output(job)
 
 @router.get("/jobs", response_model=list[JobOut])

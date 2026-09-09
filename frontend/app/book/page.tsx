@@ -4,7 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import RoleGuard from '@/components/RoleGuard';
 import { VehicleType } from '@/lib/types';
-import { getVehicleTypes, createJob, getProviders, sendVerificationEmail, verifyEmail } from '@/lib/api';
+import { getVehicleTypes, createJob, getProviders } from '@/lib/api';
 
 function BookPageContent() {
   const [step, setStep] = useState(1);
@@ -18,25 +18,7 @@ function BookPageContent() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [jobStatus, setJobStatus] = useState<'idle' | 'success'>('idle');
-  const [needsVerification, setNeedsVerification] = useState(false);
-  const [verificationSent, setVerificationSent] = useState(false);
-  const [verificationToken, setVerificationToken] = useState('');
-  const [verifying, setVerifying] = useState(false);
   const { token } = useAuth();
-
-  useEffect(() => {
-    const userStr = localStorage.getItem('naql_user');
-    if (userStr) {
-      try {
-        const user = JSON.parse(userStr);
-        if (!user.is_verified) {
-          setNeedsVerification(true);
-        }
-      } catch {
-        // ignore
-      }
-    }
-  }, []);
 
   useEffect(() => {
     getVehicleTypes()
@@ -51,38 +33,6 @@ function BookPageContent() {
         .catch(() => setError('Failed to load providers'));
     }
   }, [selectedVehicle]);
-
-  const handleSendVerification = async () => {
-    if (!token) return;
-    try {
-      await sendVerificationEmail(token);
-      setVerificationSent(true);
-      setError('');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to send verification email');
-    }
-  };
-
-  const handleVerifyEmail = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!token || !verificationToken.trim()) return;
-    setVerifying(true);
-    setError('');
-    try {
-      await verifyEmail(token, verificationToken.trim());
-      setNeedsVerification(false);
-      const userStr = localStorage.getItem('naql_user');
-      if (userStr) {
-        const user = JSON.parse(userStr);
-        user.is_verified = true;
-        localStorage.setItem('naql_user', JSON.stringify(user));
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Verification failed');
-    } finally {
-      setVerifying(false);
-    }
-  };
 
   const handleNext = async () => {
     if (step === 3) {
@@ -131,56 +81,6 @@ function BookPageContent() {
           <div className="text-6xl mb-4">✅</div>
           <h2 className="text-xl font-bold text-slate-900 mb-2">Booking Successful!</h2>
           <p className="text-slate-600">Your request has been sent to the provider.</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (needsVerification) {
-    return (
-      <div className="min-h-screen bg-slate-50 py-12 px-4 flex items-center justify-center">
-        <div className="max-w-md w-full bg-white p-8 rounded-2xl shadow-sm border border-slate-200">
-          <div className="text-center mb-6">
-            <div className="text-4xl mb-4">📧</div>
-            <h2 className="text-xl font-bold text-slate-900 mb-2">Verify Your Email</h2>
-            <p className="text-sm text-slate-600">You need to verify your email before booking a truck.</p>
-          </div>
-
-          {error && <div className="mb-4 p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">{error}</div>}
-
-          {!verificationSent ? (
-            <div className="space-y-4">
-              <button
-                onClick={handleSendVerification}
-                className="w-full p-4 bg-amber-500 text-white rounded-xl font-bold hover:bg-amber-600 transition-colors"
-              >
-                Send Verification Email
-              </button>
-              <p className="text-xs text-slate-500 text-center">We&apos;ll send a verification link to your email address.</p>
-            </div>
-          ) : (
-            <form onSubmit={handleVerifyEmail} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-1 text-slate-700">Verification Token</label>
-                <input
-                  type="text"
-                  value={verificationToken}
-                  onChange={(e) => setVerificationToken(e.target.value)}
-                  placeholder="Enter the verification token"
-                  className="w-full p-3 border rounded-lg bg-white border-slate-300 text-slate-900 focus:border-amber-500 focus:ring-1 focus:ring-amber-500 focus:outline-none"
-                  required
-                />
-              </div>
-              <button
-                type="submit"
-                disabled={verifying}
-                className="w-full p-4 bg-amber-500 text-white rounded-xl font-bold disabled:opacity-50 hover:bg-amber-600 transition-colors"
-              >
-                {verifying ? 'Verifying...' : 'Verify Email'}
-              </button>
-              <p className="text-xs text-slate-500 text-center">Check the API response for your verification token.</p>
-            </form>
-          )}
         </div>
       </div>
     );

@@ -17,6 +17,8 @@ services:
     build:
       context: ./api
       dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
     environment:
       DATABASE_URL: mysql+aiomysql://${MYSQL_USER:?set MYSQL_USER}:${MYSQL_PASSWORD:?set MYSQL_PASSWORD}@database/${MYSQL_DATABASE:?set MYSQL_DATABASE}
       SECRET_KEY: ${SECRET_KEY:?set SECRET_KEY}

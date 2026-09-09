@@ -12,7 +12,7 @@ export function useJobEvents() {
 
     const connect = async () => {
       try {
-        const response = await fetch('/api/v1/events/stream', {
+        const response = await fetch('/api/events/stream', {
           headers: {
             Authorization: `Bearer ${token}`,
           },

@@ -12,7 +12,7 @@ import type {
   AdminDriver,
 } from './types';
 
-const API_BASE = '/api/v1';
+const API_BASE = '/api';
 
 async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const url = `${API_BASE}${endpoint}`;
@@ -58,11 +58,11 @@ export async function login(identifier: string, password: string) {
     data = {};
   }
   if (!res.ok) throw new Error((data as any).detail || (data as any).message || 'Login failed');
-  return data as { access_token: string; token_type: string };
+  return data as { access_token: string; refresh_token: string; token_type: string };
 }
 
 export async function register(username: string, email: string, password: string, role: 'customer' | 'provider') {
-  return request<{ id: number; username: string | null; email: string | null; phone_number: string | null; role: string; is_verified: boolean }>('/auth/register', {
+  return request<{ id: number; username: string | null; email: string | null; phone_number: string | null; role: string }>('/auth/register', {
     method: 'POST',
     body: JSON.stringify({ username, email, password, role }),
   });
@@ -252,16 +252,43 @@ export async function getAdminDrivers(token: string) {
   });
 }
 
-export async function sendVerificationEmail(token: string) {
-  return request<{ message: string; token: string; note: string }>('/auth/send-verification', {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-}
+export const AuthAPI = {
+  login,
+  register,
+  getCurrentUser,
+  getUserStats,
+  updateUser,
+};
 
-export async function verifyEmail(token: string, verificationToken: string) {
-  return request<{ message: string }>('/auth/verify-email', {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${token}` },
-    body: JSON.stringify({ token: verificationToken }),
-  });
-}
+export const JobsAPI = {
+  getVehicleTypes,
+  getCities,
+  getCompany,
+  getTrucks,
+  createJob,
+  getJobs,
+  cancelJob,
+  acceptJob,
+  declineJob,
+};
+
+export const ProviderAPI = {
+  getProviders,
+  getProviderJobs,
+  getAvailableRequests,
+  startJob,
+  completeJob,
+  approvePrice,
+  getProviderTrucks,
+  createProviderTruck,
+  updateProviderTruck,
+  deleteProviderTruck,
+  getProviderFleet,
+  updateProviderFleet,
+};
+
+export const AdminAPI = {
+  getAdminStats,
+  getAdminRequests,
+  getAdminDrivers,
+};
