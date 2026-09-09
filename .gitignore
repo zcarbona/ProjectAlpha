@@ -14,3 +14,7 @@ pubspec.yaml
 situation.md
 truck.zip
 truck/situation.md
+api/.pytest_cache/
+.venv
+.kiro/*
+.kilo
