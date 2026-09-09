@@ -18,3 +18,4 @@ api/.pytest_cache/
 .venv
 .kiro/*
 .kilo
+tests
