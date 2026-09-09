@@ -2,21 +2,15 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import RoleGuard from '@/components/RoleGuard';
-import { getUserStats, updateUser } from '@/lib/api';
+import { updateUser } from '@/lib/api';
 
 function ProfilePageContent() {
   const { user, token, logout, refreshUser } = useAuth();
-  const [stats, setStats] = useState<{ trips: number; rating: number; savedEGP: number } | null>(null);
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
 
   useEffect(() => {
     if (!token) return;
-    getUserStats(token)
-      .then(setStats)
-      .catch(() => setStats(null))
-      .finally(() => setLoading(false));
   }, [token]);
 
   const handleUpdate = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -109,33 +103,6 @@ function ProfilePageContent() {
               {saving ? 'Saving...' : 'Update Profile'}
             </button>
           </form>
-        </div>
-
-        <div className="bg-slate-800 rounded-2xl shadow-lg p-6 border border-slate-700">
-          <h2 className="text-xl font-bold mb-4 text-white">Stats</h2>
-          {loading ? (
-            <div className="animate-pulse space-y-2">
-              <div className="h-4 bg-slate-700 rounded w-1/2" />
-              <div className="h-4 bg-slate-700 rounded w-1/3" />
-            </div>
-          ) : stats ? (
-            <div className="grid grid-cols-3 gap-4 text-center">
-              <div>
-                <div className="text-2xl font-bold text-white">{stats.trips}</div>
-                <div className="text-sm text-slate-400">Trips</div>
-              </div>
-              <div>
-                <div className="text-2xl font-bold text-white">{stats.rating} ⭐</div>
-                <div className="text-sm text-slate-400">Rating</div>
-              </div>
-              <div>
-                <div className="text-2xl font-bold text-white">{stats.savedEGP}</div>
-                <div className="text-sm text-slate-400">Saved EGP</div>
-              </div>
-            </div>
-          ) : (
-            <p className="text-slate-400">No stats available</p>
-          )}
         </div>
 
         <button

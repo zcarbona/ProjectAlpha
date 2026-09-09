@@ -32,7 +32,9 @@ def to_output(job: Job) -> JobOut:
         approved_price=job.approved_price,
         lock_expires_at=lock.expires_at if lock and lock.is_active else None,
         pickup_address=job.pickup_address or "",
+        pickup_city=job.pickup_city or "",
         dropoff_address=job.dropoff_address or "",
+        dropoff_city=job.dropoff_city or "",
     )
 
 @router.get("/trucks")
@@ -174,7 +176,9 @@ async def create_job(payload: JobCreate, request: Request, user: User = Depends(
         vehicle_class=payload.vehicle_class,
         provider_id=payload.provider_id,
         pickup_address=payload.pickup.address,
+        pickup_city=payload.pickup.city,
         dropoff_address=payload.dropoff.address,
+        dropoff_city=payload.dropoff.city,
         idempotency_key=payload.idempotency_key,
         status=JobStatus.PENDING
     )

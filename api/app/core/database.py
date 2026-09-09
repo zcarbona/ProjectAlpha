@@ -17,8 +17,7 @@ async def get_db():
         yield session
 
 async def seed_company_data():
-    from app.models.models import Company, VehicleType, City, Provider, User, UserRole
-    from app.core.security import get_password_hash
+    from app.models.models import Company, VehicleType, City
     async with AsyncSessionLocal() as session:
         existing_company = await session.execute(select(Company))
         if existing_company.scalars().first():
@@ -52,18 +51,6 @@ async def seed_company_data():
             City(name="Port Said", name_ar="بورسعيد", latitude=31.2653, longitude=32.3019),
         ]
         session.add_all(cities)
-
-        # Seed a dummy provider for testing
-        provider_user = User(
-            username="provider_test",
-            email="provider@test.com",
-            hashed_password=get_password_hash("testpass123"),
-            role=UserRole.PROVIDER,
-        )
-        session.add(provider_user)
-        await session.flush()
-        provider = Provider(user_id=provider_user.id, display_name="Test Provider")
-        session.add(provider)
 
         await session.commit()
 

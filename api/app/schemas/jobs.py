@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field, model_validator
 class Place(BaseModel):
     place_id: str | None = Field(default=None, max_length=128)
     address: str = Field(min_length=1, max_length=1000)
+    city: str | None = Field(default=None, max_length=100)
     lat: float | None = Field(default=None, ge=-90, le=90)
     lng: float | None = Field(default=None, ge=-180, le=180)
 
@@ -45,7 +46,9 @@ class JobOut(BaseModel):
     approved_price: float | None
     lock_expires_at: datetime | None = None
     pickup_address: str | None = None
+    pickup_city: str | None = None
     dropoff_address: str | None = None
+    dropoff_city: str | None = None
 
 class JobAccept(BaseModel):
     truck_id: int = Field(gt=0)

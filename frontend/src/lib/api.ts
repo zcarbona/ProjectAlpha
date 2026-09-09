@@ -74,12 +74,6 @@ export async function getCurrentUser(token: string) {
   });
 }
 
-export async function getUserStats(token: string) {
-  return request<{ trips: number; rating: number; savedEGP: number }>('/auth/me/stats', {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-}
-
 export async function updateUser(token: string, payload: { username?: string; email?: string; password?: string }) {
   return request<User>('/auth/me', {
     method: 'PATCH',
@@ -257,7 +251,6 @@ export const AuthAPI = {
   login,
   register,
   getCurrentUser,
-  getUserStats,
   updateUser,
 };
 

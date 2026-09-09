@@ -21,6 +21,7 @@ export interface VehicleType {
 export interface Place {
   place_id?: string | null;
   address: string;
+  city?: string | null;
   lat?: number | null;
   lng?: number | null;
 }
@@ -37,7 +38,9 @@ export interface Job {
   approved_price: number | null;
   lock_expires_at: string | null;
   pickup_address: string | null;
+  pickup_city: string | null;
   dropoff_address: string | null;
+  dropoff_city: string | null;
 }
 
 export interface Truck {

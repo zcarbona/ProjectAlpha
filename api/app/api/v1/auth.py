@@ -124,15 +124,6 @@ async def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends
 async def me(user: User = Depends(get_current_user)):
     return user
 
-@router.get("/me/stats")
-async def me_stats(user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
-    jobs = (await db.execute(select(Job).where(Job.customer_id == user.id))).scalars().all()
-    return {
-        "trips": len(jobs),
-        "rating": 4.9,
-        "savedEGP": 2340,
-    }
-
 @router.patch("/me", response_model=UserOut)
 async def update_me(payload: UserUpdate, request: Request, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     # Role changes require an administrator-only workflow and are not accepted here.

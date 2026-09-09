@@ -96,11 +96,13 @@ class Job(Base):
     booking_mode = Column(Enum(BookingMode), default=BookingMode.REQUEST)
     
     pickup_address = Column(Text)
+    pickup_city = Column(String(100), nullable=True)
     pickup_place_id = Column(String(100), nullable=True)
     pickup_lat = Column(Float, nullable=True)
     pickup_lng = Column(Float, nullable=True)
     
     dropoff_address = Column(Text)
+    dropoff_city = Column(String(100), nullable=True)
     dropoff_place_id = Column(String(100), nullable=True)
     dropoff_lat = Column(Float, nullable=True)
     dropoff_lng = Column(Float, nullable=True)

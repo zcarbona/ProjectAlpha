@@ -5,7 +5,6 @@ import {
   login as apiLogin,
   register as apiRegister,
   getCurrentUser,
-  getUserStats,
 } from '@/lib/api';
 
 interface AuthContextType {
