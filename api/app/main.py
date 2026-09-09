@@ -40,17 +40,16 @@ app.add_middleware(
     allow_headers=["Authorization", "Content-Type"],
 )
 
-app.include_router(auth_router, prefix="/api/v1")
-app.include_router(jobs_router, prefix="/api/v1")
-app.include_router(company_router, prefix="/api/v1")
-app.include_router(provider_router, prefix="/api/v1")
-app.include_router(events_router, prefix="/api/v1")
+app.include_router(auth_router, prefix="/api")
+app.include_router(jobs_router, prefix="/api")
+app.include_router(company_router, prefix="/api")
+app.include_router(provider_router, prefix="/api")
+app.include_router(events_router, prefix="/api")
 
 @app.get("/")
 async def root():
     return {"message": "Welcome to Naql API", "status": "running"}
 
-@app.get("/health")
-@app.get("/api/v1/health")
+@app.get("/api/health")
 async def health_check():
     return {"status": "healthy"}

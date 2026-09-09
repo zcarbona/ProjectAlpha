@@ -19,7 +19,7 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 15
 REFRESH_TOKEN_EXPIRE_DAYS = 7
 MAX_LOGIN_ATTEMPTS = 5
 LOCK_MINUTES = 15
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 
 pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
 

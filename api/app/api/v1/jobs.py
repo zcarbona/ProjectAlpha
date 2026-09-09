@@ -45,54 +45,82 @@ from sqlalchemy import select, update, not_
 
 @router.post("/provider/jobs/{job_id}/start", response_model=JobOut)
 async def start_job(job_id: int, request: Request, user: User = Depends(require_role(UserRole.PROVIDER)), db: AsyncSession = Depends(get_db)):
-    # 1. Get job
+    provider = (await db.execute(select(Provider).where(Provider.user_id == user.id))).scalars().first()
+    if not provider:
+        logger.info("start_job 403: provider_not_found user_id=%s", user.id)
+        raise HTTPException(status_code=403, detail="Provider not found")
+
+    if not provider.is_active:
+        logger.info("start_job 403: provider_inactive provider_id=%s", provider.id)
+        raise HTTPException(status_code=403, detail="Provider is inactive")
+
     job = (await db.execute(
         select(Job)
-        .options(selectinload(Job.provider))
+        .options(selectinload(Job.truck), selectinload(Job.provider), selectinload(Job.truck_lock))
         .join(Provider)
         .where(Job.id == job_id, Provider.user_id == user.id, Job.status == JobStatus.ACCEPTED)
     )).scalars().first()
-    
+
     if not job:
+        logger.info("start_job 404: active_job_not_found job_id=%s", job_id)
         raise HTTPException(status_code=404, detail="Active job not found")
-        
-    # 2. Update status
+
+    if not job.truck_id:
+        logger.info("start_job 404: no_truck_assigned job_id=%s", job_id)
+        raise HTTPException(status_code=404, detail="No truck assigned to this job")
+
+    assigned_truck = job.truck
+    if assigned_truck.provider_id != provider.id:
+        logger.info("start_job 403: wrong_truck_provider job_id=%s truck_provider_id=%s attempt_provider_id=%s", job_id, assigned_truck.provider_id, provider.id)
+        raise HTTPException(status_code=403, detail="Truck does not belong to provider")
+
+    if not assigned_truck.is_active:
+        logger.info("start_job 403: truck_inactive job_id=%s truck_id=%s", job_id, assigned_truck.id)
+        raise HTTPException(status_code=403, detail="Assigned truck is inactive")
+
     job.status = JobStatus.IN_PROGRESS
     db.add(AuditEvent(actor=str(user.id), action="start_trip", record_type="Job", record_id=job.id, ip_address=_client_ip(request), user_agent=request.headers.get("user-agent")))
     await db.commit()
     await manager.broadcast(job.customer_id, {"type": "trip_started", "job_id": job.id})
+
+    job = (await db.execute(
+        select(Job)
+        .options(selectinload(Job.truck), selectinload(Job.provider), selectinload(Job.truck_lock))
+        .where(Job.id == job_id)
+    )).scalars().first()
     return to_output(job)
 
 @router.post("/provider/jobs/{job_id}/complete", response_model=JobOut)
 async def complete_job(job_id: int, request: Request, user: User = Depends(require_role(UserRole.PROVIDER)), db: AsyncSession = Depends(get_db)):
-    # 1. Get job with relationships
     job = (await db.execute(
         select(Job)
-        .options(selectinload(Job.provider), selectinload(Job.truck_lock))
+        .options(selectinload(Job.truck), selectinload(Job.provider), selectinload(Job.truck_lock))
         .join(Provider)
         .where(Job.id == job_id, Provider.user_id == user.id, Job.status == JobStatus.IN_PROGRESS)
     )).scalars().first()
     
     if not job:
         raise HTTPException(status_code=404, detail="In-progress job not found")
-        
-    # 2. Update status and reset resources
-    job.status = JobStatus.COMPLETED
     
-    # Reset provider availability
+    job.status = JobStatus.COMPLETED
     provider = job.provider
     provider.is_available = True
     db.add(provider)
     
-    # Release truck lock
     if job.truck_lock:
         job.truck_lock.is_active = False
         db.add(job.truck_lock)
-        
+    
     db.add(AuditEvent(actor=str(user.id), action="complete_trip", record_type="Job", record_id=job.id, ip_address=_client_ip(request), user_agent=request.headers.get("user-agent")))
     await db.commit()
     await manager.broadcast(job.customer_id, {"type": "trip_completed", "job_id": job.id})
     await manager.broadcast(job.provider.user_id, {"type": "trip_completed", "job_id": job.id})
+
+    job = (await db.execute(
+        select(Job)
+        .options(selectinload(Job.truck), selectinload(Job.provider), selectinload(Job.truck_lock))
+        .where(Job.id == job_id)
+    )).scalars().first()
     return to_output(job)
 
 @router.post("/provider/status", response_model=dict)

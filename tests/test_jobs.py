@@ -22,5 +22,5 @@ async def test_create_job_unauthorized(client: AsyncClient):
         "requested_max_price": 20.0,
         "idempotency_key": str(uuid.uuid4())
     }
-    response = await client.post("/api/v1/jobs", json=payload)
+    response = await client.post("/api/jobs", json=payload)
     assert response.status_code == 401
