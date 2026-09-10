@@ -1,0 +1,129 @@
+# ==========================================
+# Environments & Secrets (NEVER COMMIT)
+# ==========================================
+.env
+.env*.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.env
+
+# ==========================================
+# Next.js / Node.js
+# ==========================================
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Next.js build output
+.next/
+out/
+build/
+dist/
+
+# Next.js telemetry and cache
+.next/cache/
+.vercel
+
+# TypeScript cache
+*.tsbuildinfo
+next-env.d.ts
+
+# Testing (Jest / Vitest / Playwright / Cypress)
+coverage/
+.nyc_output/
+cypress/videos/
+cypress/screenshots/
+test-results/
+playwright-report/
+
+# ==========================================
+# Python / FastAPI
+# ==========================================
+# Byte-compiled / optimized files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# Package distributions & builds
+*.egg-info/
+.eggs/
+dist/
+build/
+eggs/
+parts/
+var/
+sdist/
+develop-eggs/
+.installed.cfg
+*.egg
+
+# Database / SQLite (if using local file-based DB)
+*.sqlite
+*.sqlite3
+*.db
+
+# Alembic (keep versions/, ignore migration caches)
+# Ensure alembic/versions/ is tracked in git!
+
+# Pytest / Testing / Coverage
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+
+# Type checking / Linters (mypy, ruff, black)
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.ruff_cache/
+
+# Celery / Background tasks
+celerybeat-schedule
+celerybeat.pid
+
+# ==========================================
+# OS & IDE Files
+# ==========================================
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# IDEs
+.idea/
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.sublime-workspace
+*.sublime-project
+
+# Miscellaneous
+*.log
+*.bak
+*.tmp
+*.swp
