@@ -24,6 +24,7 @@ export interface Place {
   address: string;
   lat: number;
   lng: number;
+  city?: string;
 }
 
 export interface Job {

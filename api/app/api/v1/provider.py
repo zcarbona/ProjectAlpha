@@ -13,12 +13,22 @@ class TruckCreate(BaseModel):
     vehicle_class: str = Field(min_length=1, max_length=50)
     capacity: str = Field(min_length=1, max_length=50)
     is_active: bool = True
+    latitude: float | None = Field(default=None, ge=-90, le=90)
+    longitude: float | None = Field(default=None, ge=-180, le=180)
+    current_lat: float | None = Field(default=None, ge=-90, le=90)
+    current_lng: float | None = Field(default=None, ge=-180, le=180)
+    driver_user_id: int | None = None
 
 class TruckUpdate(BaseModel):
     plate_number: str | None = Field(default=None, min_length=1, max_length=20)
     vehicle_class: str | None = Field(default=None, min_length=1, max_length=50)
     capacity: str | None = Field(default=None, min_length=1, max_length=50)
     is_active: bool | None = None
+    latitude: float | None = Field(default=None, ge=-90, le=90)
+    longitude: float | None = Field(default=None, ge=-180, le=180)
+    current_lat: float | None = Field(default=None, ge=-90, le=90)
+    current_lng: float | None = Field(default=None, ge=-180, le=180)
+    driver_user_id: int | None = None
 
 class TruckOut(BaseModel):
     id: int
@@ -26,6 +36,11 @@ class TruckOut(BaseModel):
     vehicle_class: str
     capacity: str
     is_active: bool
+    latitude: float | None = None
+    longitude: float | None = None
+    current_lat: float | None = None
+    current_lng: float | None = None
+    driver_user_id: int | None = None
     model_config = ConfigDict(from_attributes=True)
 
 class FleetItemOut(BaseModel):
@@ -60,7 +75,7 @@ async def create_truck(payload: TruckCreate, request: Request, user: User = Depe
     existing = (await db.execute(select(Truck).where(Truck.plate_number == payload.plate_number))).scalars().first()
     if existing:
         raise HTTPException(status_code=400, detail="Truck with this plate number already exists")
-    truck = Truck(provider_id=provider.id, plate_number=payload.plate_number, vehicle_class=payload.vehicle_class, capacity=payload.capacity, is_active=payload.is_active)
+    truck = Truck(provider_id=provider.id, plate_number=payload.plate_number, vehicle_class=payload.vehicle_class, capacity=payload.capacity, is_active=payload.is_active, latitude=payload.latitude, longitude=payload.longitude, current_lat=payload.current_lat, current_lng=payload.current_lng, driver_user_id=payload.driver_user_id)
     db.add(truck)
     db.add(AuditEvent(actor=str(user.id), action="create_truck", record_type="Truck", record_id=None, ip_address=_client_ip(request), user_agent=request.headers.get("user-agent")))
     await db.commit()
@@ -83,6 +98,16 @@ async def update_truck(truck_id: int, payload: TruckUpdate, request: Request, us
         truck.capacity = payload.capacity
     if payload.is_active is not None:
         truck.is_active = payload.is_active
+    if payload.latitude is not None:
+        truck.latitude = payload.latitude
+    if payload.longitude is not None:
+        truck.longitude = payload.longitude
+    if payload.current_lat is not None:
+        truck.current_lat = payload.current_lat
+    if payload.current_lng is not None:
+        truck.current_lng = payload.current_lng
+    if payload.driver_user_id is not None:
+        truck.driver_user_id = payload.driver_user_id
     db.add(AuditEvent(actor=str(user.id), action="update_truck", record_type="Truck", record_id=truck.id, ip_address=_client_ip(request), user_agent=request.headers.get("user-agent")))
     await db.commit()
     await db.refresh(truck)

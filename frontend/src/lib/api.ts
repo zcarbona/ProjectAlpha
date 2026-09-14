@@ -206,3 +206,11 @@ export async function getAdminDrivers(token: string) {
     headers: { Authorization: `Bearer ${token}` },
   });
 }
+
+export async function updateUserLocation(token: string, lat: number, lng: number) {
+  return request<{ ok: boolean; lat: number; lng: number }>('/auth/me/location', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ lat, lng }),
+  });
+}

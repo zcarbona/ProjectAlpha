@@ -1,4 +1,5 @@
 'use client';
+
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import RoleGuard from '@/components/RoleGuard';
@@ -11,47 +12,22 @@ function TripPageContent() {
   const [error, setError] = useState('');
   const { token } = useAuth();
 
-  const loadJobs = async () => {
-    if (!token) return;
-    try {
-      const data = await getJobs(token);
-      setJobs(data);
-    } catch {
-      setError('Failed to load jobs');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
-    loadJobs();
+    let active = true;
+    const load = async () => {
+      if (!token) { setLoading(false); return; }
+      try {
+        const data = await getJobs(token);
+        if (active) setJobs(data);
+      } catch {
+        if (active) setError('Failed to load jobs');
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+    load();
+    return () => { active = false; };
   }, [token]);
-
-  const handleCancel = async (jobId: number) => {
-    if (!token || !confirm('Are you sure you want to cancel this request?')) return;
-    try {
-      await cancelJob(token, jobId);
-      loadJobs();
-    } catch {
-      alert('Failed to cancel request');
-    }
-  };
-
-  const statusColor = (status: string) => {
-    switch (status) {
-      case 'in_transit':
-        return 'bg-emerald-100 text-emerald-800 border border-emerald-200';
-      case 'awaiting_provider_price_approval':
-      case 'awaiting_payment':
-        return 'bg-amber-100 text-amber-800 border border-amber-200';
-      case 'completed':
-        return 'bg-gray-100 text-gray-700 border border-gray-200';
-      case 'cancelled':
-        return 'bg-red-100 text-red-700 border border-red-200';
-      default:
-        return 'bg-red-50 text-red-700 border border-red-200';
-    }
-  };
 
   if (loading) {
     return (
@@ -62,78 +38,74 @@ function TripPageContent() {
   }
 
   return (
-    <div className="min-h-screen bg-white py-8 px-4">
-      <div className="max-w-2xl mx-auto">
-        <h1 className="text-2xl font-bold mb-6 text-gray-900">My Requests</h1>
-
-        {error && (
-          <div className="mb-4 p-3 rounded-lg text-sm" style={{ background: '#ffebee', border: '1px solid #ffcdd2', color: '#b91c1c' }}>
-            {error}
+    <div className="trip-page">
+      <div className="trip-header">
+        <div className="trip-title">
+          <span>O</span>
+          <div>
+            <h1>My Trips</h1>
+            <p>Track your shipments and view trip details</p>
           </div>
-        )}
-
-        {jobs.length === 0 ? (
-          <div className="bg-white rounded-2xl shadow-sm p-12 text-center text-gray-500" style={{ border: '1px solid #e5e7eb' }}>
-            <div className="text-4xl mb-4">📦</div>
-            <p>No requests yet.</p>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {jobs.map((job) => (
-              <div key={job.id} className="bg-white rounded-2xl shadow-sm p-6" style={{ border: '1px solid #e5e7eb' }}>
-                <div className="flex justify-between items-start mb-4">
-                  <div>
-                    <h3 className="font-bold text-lg text-gray-900">Request #{job.id}</h3>
-                    <p className="text-sm text-gray-500">
-                      {job.truck_plate ? `${job.vehicle_class} · ${job.truck_plate}` : job.vehicle_class}
-                    </p>
-                  </div>
-                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${statusColor(job.status)}`}>
-                    {job.status.replace(/_/g, ' ').toUpperCase()}
-                  </span>
-                </div>
-
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">Provider</span>
-                    <span className="font-medium text-gray-700">{job.provider_name || `#${job.provider_id}`}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">Pickup</span>
-                    <span className="font-medium text-gray-700">{job.pickup_address || 'Not set'}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">Dropoff</span>
-                    <span className="font-medium text-gray-700">{job.dropoff_address || 'Not set'}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">Requested</span>
-                    <span className="font-medium text-gray-700">
-                      {job.requested_min_price?.toFixed(0)}–{job.requested_max_price?.toFixed(0)} EGP
-                    </span>
-                  </div>
-                  {job.approved_price && (
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">Approved</span>
-                      <span className="font-medium text-red-600">{job.approved_price} EGP · payment pending</span>
-                    </div>
-                  )}
-                </div>
-
-                {(job.status === 'awaiting_provider_price_approval' || job.status === 'awaiting_payment') && (
-                  <button
-                    onClick={() => handleCancel(job.id)}
-                    className="mt-4 px-4 py-2 border rounded-lg text-sm hover:bg-red-50 transition-colors"
-                    style={{ borderColor: '#fecaca', color: '#b91c1c' }}
-                  >
-                    Cancel
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
+        </div>
       </div>
+
+      {error && <div className="section-card" style={{ background: '#ffebee', border: '1px solid #ffcdd2', color: '#b91c1c', padding: '12px', borderRadius: '10px', marginBottom: '18px' }}>{error}</div>}
+
+      {jobs.length > 0 ? (
+        <div className="trip-layout">
+          <section className="trip-list-card">
+            <div className="trip-tabs">
+              <button className="active">All Trips ({jobs.length})</button>
+            </div>
+            <div className="trip-list">
+              {jobs.map((job) => (
+                <button className="trip-item selected" key={job.id}>
+                  <div className="trip-item-image">🚚</div>
+                  <div className="trip-item-content">
+                    <div className="trip-item-top">
+                      <strong>#{job.id}</strong>
+                      <span className={`status ${job.status.toLowerCase().replace(/_/g, '-')}`}>{job.status.replace(/_/g, ' ')}</span>
+                    </div>
+                    <div className="trip-route">A {job.pickup_address || 'Pickup'}&gt;A {job.dropoff_address || 'Drop-off'}</div>
+                    <small>T {job.vehicle_class || 'Truck'}</small>
+                  </div>
+                  <span className="trip-arrow">&gt;</span>
+                </button>
+              ))}
+            </div>
+          </section>
+          <section className="trip-details-area">
+            <div className="trip-map">
+              <iframe title="Trip route map" src="https://www.openstreetmap.org/export/embed.html?bbox=31.05%2C29.85%2C31.55%2C30.25&layer=mapnik" />
+            </div>
+            <div className="trip-detail-card">
+              <div className="detail-tabs"><button className="active">Trip Details</button></div>
+              <div className="detail-main">
+                <div className="driver-section">
+                  <div className="driver-truck">🚚</div>
+                  <div><strong>Request #{jobs[0].id}</strong><small>{jobs[0].vehicle_class || 'Truck'}</small></div>
+                  <div className="driver-profile"><div className="driver-avatar">U</div><div><strong>Customer</strong><small>Driver</small></div><button>CALL</button></div>
+                </div>
+                <div className="trip-information">
+                  <div><small>Status</small><strong className="blue-status">{jobs[0].status.replace(/_/g, ' ')}</strong></div>
+                  <div><small>Estimated Arrival</small><strong>-</strong></div>
+                </div>
+              </div>
+              <aside className="trip-location-card">
+                <div className="location-detail"><span className="green-pin">G</span><div><strong>Pickup Location</strong><span>{jobs[0].pickup_address || '-'}</span><small>Cairo Governorate, Egypt</small></div></div>
+                <div className="location-vertical-line" />
+                <div className="location-detail"><span className="red-pin">R</span><div><strong>Drop-off Location</strong><span>{jobs[0].dropoff_address || '-'}</span><small>Giza Governorate, Egypt</small></div></div>
+                <button className="contact-driver">Contact Driver</button>
+              </aside>
+            </div>
+          </section>
+        </div>
+      ) : (
+        <div className="recent-card" style={{ textAlign: 'center', padding: '40px' }}>
+          <div style={{ fontSize: '40px', marginBottom: '8px' }}>BOX</div>
+          <p style={{ color: '#8992a2' }}>No requests yet.</p>
+        </div>
+      )}
     </div>
   );
 }

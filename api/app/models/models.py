@@ -33,6 +33,9 @@ class User(Base):
     locked_until = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    # Current location (like Uber) — saved when user opens the app
+    current_lat = Column(Float, nullable=True)
+    current_lng = Column(Float, nullable=True)
 
     # Relationships
     provider_profile = relationship("Provider", back_populates="user", uselist=False)
@@ -73,6 +76,14 @@ class Truck(Base):
     vehicle_class = Column(String(50))  # e.g., Small, Medium, Large, XL
     capacity = Column(String(50))
     is_active = Column(Boolean, default=True)
+    # Home base / depot location
+    latitude = Column(Float, nullable=True)
+    longitude = Column(Float, nullable=True)
+    # Live location (like Uber) — updated by the driver app
+    current_lat = Column(Float, nullable=True)
+    current_lng = Column(Float, nullable=True)
+    # Optional link to the driver user account
+    driver_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
 
     provider = relationship("Provider", back_populates="trucks")
     locks = relationship("TruckLock", back_populates="truck")

@@ -22,7 +22,7 @@ export default function BottomNav() {
       ]
     : [
         { href: '/book', emoji: '🚛', label: t('BOOK', 'طلب'), number: '1' },
-        { href: '/trip', emoji: '📍', label: t('TRIPS', 'ال_relief'), number: '2' },
+        { href: '/trip', emoji: '📍', label: t('TRIPS', 'الرحالت'), number: '2' },
         { href: '/chat', emoji: '💬', label: t('CHAT', 'دردشة'), number: '3' },
       ];
 

@@ -6,6 +6,7 @@ import {
   register as apiRegister,
   getCurrentUser,
   getUserStats,
+  updateUserLocation,
 } from '@/lib/api';
 
 interface AuthContextType {
@@ -39,6 +40,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     setLoading(false);
   }, []);
+
+  // Save user location to database when they open the app
+  useEffect(() => {
+    if (!token || loading) return;
+    if (typeof navigator === 'undefined' || !navigator.geolocation) {
+      console.log('[AuthContext] No geolocation available');
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        console.log('[AuthContext] Got position:', pos.coords.latitude, pos.coords.longitude);
+        try {
+          const result = await updateUserLocation(token, pos.coords.latitude, pos.coords.longitude);
+          console.log('[AuthContext] Location saved:', result);
+          setUser((prev) => prev ? { ...prev, current_lat: pos.coords.latitude, current_lng: pos.coords.longitude } : prev);
+        } catch (err) {
+          console.error('[AuthContext] Failed to save location:', err);
+        }
+      },
+      (err) => {
+        console.log('[AuthContext] Geolocation denied or failed:', err.message);
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 },
+    );
+  }, [token, loading]);
 
   const login = async (identifier: string, password: string) => {
     const data = await apiLogin(identifier, password);

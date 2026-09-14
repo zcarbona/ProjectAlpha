@@ -126,7 +126,6 @@ async def me_stats(user: User = Depends(get_current_user), db: AsyncSession = De
         "rating": 4.9,
         "savedEGP": 2340,
     }
-
 @router.patch("/me", response_model=UserOut)
 async def update_me(payload: UserUpdate, request: Request, user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     # Role changes require an administrator-only workflow and are not accepted here.
@@ -137,6 +136,7 @@ async def update_me(payload: UserUpdate, request: Request, user: User = Depends(
         value = getattr(payload, field)
         if value is not None:
             setattr(user, field, value)
+
     if payload.password:
         try:
             validate_password_strength(payload.password)
@@ -148,3 +148,24 @@ async def update_me(payload: UserUpdate, request: Request, user: User = Depends(
     await db.refresh(user)
     await export_users_csv(db)
     return user
+
+@router.post("/me/location")
+async def update_location(
+    request: Request,
+    body: dict,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    lat = body.get("lat")
+    lng = body.get("lng")
+    if lat is None or lng is None:
+        raise HTTPException(status_code=422, detail="lat and lng are required")
+    try:
+        user.current_lat = float(lat)
+        user.current_lng = float(lng)
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=422, detail="lat and lng must be numbers")
+    db.add(AuditEvent(actor=str(user.id), action="update_location", record_type="User", record_id=user.id, ip_address=_client_ip(request), user_agent=request.headers.get("user-agent")))
+    await db.commit()
+    await export_users_csv(db)
+    return {"ok": True, "lat": user.current_lat, "lng": user.current_lng}

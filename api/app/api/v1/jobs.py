@@ -30,9 +30,25 @@ def to_output(job: Job) -> JobOut:
     )
 
 @router.get("/trucks")
-async def trucks(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(Truck).where(Truck.is_active.is_(True)))
-    return [{"id": truck.id, "vehicle_class": truck.vehicle_class, "capacity": truck.capacity} for truck in result.scalars()]
+async def trucks(db: AsyncSession = Depends(get_db), vehicle_class: str | None = None):
+    query = select(Truck).where(Truck.is_active.is_(True))
+    if vehicle_class:
+        query = query.where(Truck.vehicle_class == vehicle_class)
+    result = await db.execute(query)
+    return [
+        {
+            "id": truck.id,
+            "vehicle_class": truck.vehicle_class,
+            "capacity": truck.capacity,
+            "plate_number": truck.plate_number,
+            "latitude": truck.latitude,
+            "longitude": truck.longitude,
+            "current_lat": truck.current_lat,
+            "current_lng": truck.current_lng,
+            "driver_user_id": truck.driver_user_id,
+        }
+        for truck in result.scalars()
+    ]
 
 @router.post("/jobs", response_model=JobOut, status_code=status.HTTP_201_CREATED)
 async def create_job(payload: JobCreate, request: Request, user: User = Depends(require_role(UserRole.CUSTOMER)), db: AsyncSession = Depends(get_db)):

@@ -90,7 +90,7 @@ async def seed_mock_data(session: AsyncSession):
     session.add(provider)
     await session.flush()
     
-    truck = Truck(provider_id=provider.id, vehicle_class="small", capacity=500, is_active=True)
+    truck = Truck(provider_id=provider.id, vehicle_class="small", capacity=500, is_active=True, latitude=30.0444, longitude=31.2357, current_lat=30.0500, current_lng=31.2400)
     session.add(truck)
     await session.flush()
 
