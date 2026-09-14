@@ -22,7 +22,7 @@ A full-stack logistics platform with a Next.js web frontend, a Flutter mobile/de
 
 | Layer         | Technology                          |
 |---------------|-------------------------------------|
-| Frontend web  | Next.js 16, TypeScript, Tailwind CSS |
+| Frontend web  | Next.js 16, TypeScript, Tailwind CSS, Naql design system |
 | Mobile app    | Flutter 3.12 (Dart)                 |
 | API           | FastAPI + SQLAlchemy + aiomysql     |
 | Database      | MySQL 8.0                           |
@@ -31,8 +31,9 @@ A full-stack logistics platform with a Next.js web frontend, a Flutter mobile/de
 
 ## Features
 
+- **Naql Design System** — custom CSS design system (sidebar, header, cards, buttons) applied to all customer pages
 - **User authentication** — JWT login/register with argon2id password hashing
-- **Truck booking** — 4 vehicle sizes (Small/Medium/Large/X-Large)
+- **Truck booking** — 4 vehicle sizes (Small/Medium/Large/X-Large) with live map tracking
 - **Cargo category selection** — auto-suggests truck size based on what you're moving
 - **Job lifecycle** — draft → published → awaiting provider price → confirmed → in transit → delivered
 - **Chat** — driver messaging with FAQ quick-replies and AI-style suggestions
@@ -42,6 +43,8 @@ A full-stack logistics platform with a Next.js web frontend, a Flutter mobile/de
 - **Auto CSV export** — `exports/users.csv` updates automatically on every profile change
 - **Bilingual (EN/AR)** — language toggle in Flutter app and web header
 - **Red branding** — all user-facing screens use red theme
+- **Uber-like pricing** — estimated price based on vehicle size + Haversine distance between pickup and dropoff cities
+- **Live truck map** — OpenStreetMap / Leaflet with real-time truck markers and user location
 
 ## Roles
 
@@ -146,6 +149,14 @@ ProjectAlpha/
 |-------------------------------|--------------------------------------------|
 | `docker-compose.yml`          | Defines frontend, api, database services   |
 | `frontend/app/layout.tsx`     | Root layout with AuthProvider + LangProvider |
+| `frontend/app/naql.css`       | Naql design system (sidebar, header, cards, forms) |
+| `frontend/src/components/NaqlLayout.tsx` | Sidebar + header layout for customer pages |
+| `frontend/src/components/Shell.tsx` | Layout switcher between NaqlLayout and old Header+BottomNav |
+| `frontend/src/components/TruckMap.tsx` | Leaflet map with truck markers and user location |
+| `frontend/app/page.tsx`       | Home page with auth redirect and Naql design |
+| `frontend/app/book/page.tsx` | Book page with progress steps, vehicle selection, pricing, map |
+| `frontend/app/trip/page.tsx` | Trips page with real jobs from API, wrapped in RoleGuard |
+| `frontend/app/profile/page.tsx` | Profile page using NaqlLayout |
 | `frontend/src/lib/api.ts`     | API client (all endpoints)                 |
 | `frontend/src/contexts/AuthContext.tsx` | Auth state management              |
 | `frontend/src/contexts/LangContext.tsx`  | Language toggle (EN/AR)          |
