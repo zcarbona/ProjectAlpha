@@ -1,0 +1,70 @@
+# ==========================================
+# Environments & Secrets (NEVER COMMIT)
+# ==========================================
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.cert
+
+# ==========================================
+# Next.js / Node.js / Frontend
+# ==========================================
+node_modules/
+**/node_modules/
+.next/
+**/.next/
+out/
+build/
+dist/
+*.tsbuildinfo
+next-env.d.ts
+.vercel
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ==========================================
+# Python / FastAPI / Backend
+# ==========================================
+__pycache__/
+**/__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+ENV/
+*.egg-info/
+.pytest_cache/
+**/.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+*.sqlite
+*.sqlite3
+*.db
+
+# ==========================================
+# Docker / Database Data
+# ==========================================
+mysql_data/
+data/
+
+# ==========================================
+# OS & IDE Files
+# ==========================================
+.DS_Store
+Thumbs.db
+Desktop.ini
+.idea/
+.vscode/
+*.swp
+*.swo
+*.bak
+*.tmp
+*.log

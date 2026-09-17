@@ -1,0 +1,112 @@
+services:
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      frontend:
+        condition: service_started
+      api:
+        condition: service_healthy
+    networks:
+      - bestofboth_network
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+    init: true
+    environment:
+      - NODE_ENV=production
+      - API_BACKEND_URL=http://api:8000
+    networks:
+      - bestofboth_network
+    depends_on:
+      api:
+        condition: service_healthy
+
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: mysql+aiomysql://${MYSQL_USER:-naql_user}:${MYSQL_PASSWORD:-naql_password}@database:3306/${MYSQL_DATABASE:-naql_db}
+      SECRET_KEY: ${SECRET_KEY:-changeme_super_secret_jwt_key_32_bytes_min}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      EMAIL_SENDER: ${EMAIL_SENDER:-}
+      APP_PASSWORD: ${APP_PASSWORD:-}
+    restart: unless-stopped
+    init: true
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - bestofboth_network
+    depends_on:
+      database:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=3)",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  database:
+    image: mysql:8.0
+    command: --default-authentication-plugin=mysql_native_password
+    environment:
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-naql_db}
+      MYSQL_USER: ${MYSQL_USER:-naql_user}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-naql_password}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root_secure_password}
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "mysqladmin ping -h localhost -u root -p$$MYSQL_ROOT_PASSWORD --silent",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    init: true
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - bestofboth_network
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    networks:
+      - bestofboth_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+
+networks:
+  bestofboth_network:
+    driver: bridge
+
+volumes:
+  mysql_data:
