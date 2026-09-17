@@ -100,6 +100,14 @@ pip install -r requirements.txt
 uvicorn app.main:app --reload --port 8000
 ```
 
+### Setup by Docker
+From Project Root folder
+```bash
+Run
+   docker compose up --build -d
+NOTE: make sure you wait till all become green (running, started, created)
+```
+
 ### Running Backend Tests
 All 27 integration and unit tests are configured to run with in-memory SQLite:
 ```bash
